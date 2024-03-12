@@ -64,7 +64,7 @@ class StokesExtruded:
             assert ValueError
         # Stokes weak form
         nu = 1.0  # FIXME
-        u, p = fd.split(self.up)
+        u, p = fd.split(self.up)          # get UFL objects
         v, q = fd.TestFunctions(self.Z)
         self.F = ( fd.inner(2.0 * nu * _D(u), _D(v)) \
                  - p * fd.div(v) - q * fd.div(u) \
@@ -72,6 +72,7 @@ class StokesExtruded:
         # solve
         fd.solve(self.F == 0, self.up, bcs=self.bcs,
                  options_prefix='s', solver_parameters=par)
+        u, p = self.up.subfunctions[0], self.up.subfunctions[1]
         return u, p
 
     def savesolution(self, name=None):

@@ -1,5 +1,5 @@
 from firedrake import *
-from stokesextruded import StokesExtruded
+from stokesextruded import StokesExtruded, par_defaults, par_mumps
 
 def test_setupmixed2d():
     m = 2
@@ -26,7 +26,9 @@ def test_solvelinear2dhydrostatic():
     se = StokesExtruded(mesh)
     se.setupTaylorHood()
     se.dirichlet((1,2,'bottom'),Constant((0.0,0.0)))
-    se.solve()
+    p = par_defaults.copy()
+    p.update(par_mumps)
+    se.solve(par=p)
     _, z = SpatialCoordinate(mesh)
     u, p = se.up.subfunctions[0], se.up.subfunctions[1]
     assert norm(u) < 1.0e-10

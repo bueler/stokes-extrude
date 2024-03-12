@@ -3,6 +3,25 @@
 import numpy as np
 import firedrake as fd
 
+# Newton solve Stokes
+par_defaults = { \
+    'snes_linesearch_type': 'basic',
+    'snes_max_it': 200,
+    'snes_rtol': 1.0e-8,
+    'snes_atol': 1.0e-12,
+    'snes_stol': 0.0,
+    }
+
+# Newton steps by LU
+par_mumps = { \
+    'ksp_type': 'preonly',
+    'pc_type': 'lu',
+    'pc_factor_shift_type': 'inblocks',
+    'pc_factor_mat_solver_type': 'mumps',
+    }
+
+# FIXME Newton steps by GMG in vert, AMG in horizontal
+
 def _extend(mesh, f):
     '''On an extruded mesh extend a function f(x,z), already defined on the
     base mesh, to the mesh using the 'R' constant-in-the-vertical space.'''
@@ -34,9 +53,8 @@ class StokesExtruded:
     def dirichlet(self, ind, val):
         self.bcs = self.bcs + [ fd.DirichletBC(self.Z.sub(0), val, ind) ]
 
-    def solve(self):
+    def solve(self, par=None):
         '''Solve the Stokes problem.'''
-
         # body force FIXME
         if self.dim == 2:
             fbody = fd.Constant((0.0, -1.0))
@@ -44,7 +62,6 @@ class StokesExtruded:
             fbody = fd.Constant((0.0, 0.0, -1.0))
         else:
             assert ValueError
-
         # Stokes weak form
         nu = 1.0  # FIXME
         u, p = fd.split(self.up)
@@ -52,24 +69,9 @@ class StokesExtruded:
         self.F = ( fd.inner(2.0 * nu * _D(u), _D(v)) \
                  - p * fd.div(v) - q * fd.div(u) \
                  - fd.inner(fbody, v) ) * fd.dx
-
-        # Newton-LU solve Stokes   FIXME GMG in vert, AMG in horizontal
-        self.solveparams = { \
-            #'snes_converged_reason': None,
-            #'snes_view': None,
-            #'snes_linesearch_type': 'bt',
-            #'snes_linesearch_monitor': None,
-            'snes_max_it': 200,
-            'snes_rtol': 1.0e-8,
-            'snes_atol': 1.0e-12,
-            'snes_stol': 0.0,
-            'ksp_type': 'preonly',
-            'pc_type': 'lu',
-            'pc_factor_shift_type': 'inblocks',
-            'pc_factor_mat_solver_type': 'mumps',
-            }
+        # solve
         fd.solve(self.F == 0, self.up, bcs=self.bcs,
-                 options_prefix='s', solver_parameters=self.solveparams)
+                 options_prefix='s', solver_parameters=par)
         return u, p
 
     def savesolution(self, name=None):

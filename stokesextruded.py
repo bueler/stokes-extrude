@@ -3,7 +3,7 @@
 import numpy as np
 import firedrake as fd
 
-def extend(mesh, f):
+def _extend(mesh, f):
     '''On an extruded mesh extend a function f(x,z), already defined on the
     base mesh, to the mesh using the 'R' constant-in-the-vertical space.'''
     Q1R = fd.FunctionSpace(mesh, 'P', 1, vfamily='R', vdegree=0)
@@ -11,7 +11,7 @@ def extend(mesh, f):
     fextend.dat.data[:] = f.dat.data_ro[:]
     return fextend
 
-def D(w):
+def _D(w):
     return 0.5 * (fd.grad(w) + fd.grad(w).T)
 
 class StokesExtruded:
@@ -23,21 +23,12 @@ class StokesExtruded:
         self.dim = sum(mesh.cell_dimension())
         self.bcs = []
 
-    def savesolution(self, name=None):
-        ''' Save u, p solution into .pvd file.'''
-        u, p = self.up.subfunctions[0], self.up.subfunctions[1]
-        u.rename('velocity (m s-1)')
-        p.rename('pressure (Pa)')
-        print('saving u,p to %s' % name)
-        fd.File(name).write(u,p)
-
     def setupTaylorHood(self, kp=1):
         # set up Taylor-Hood mixed method
         self.V = fd.VectorFunctionSpace(self.mesh, 'Lagrange', kp+1)
         self.W = fd.FunctionSpace(self.mesh, 'Lagrange', kp)
         self.Z = self.V * self.W
         self.up = fd.Function(self.Z)
-        self.v, self.q = fd.TestFunctions(self.Z)
         return self.V.dim(), self.W.dim()
 
     def dirichlet(self, ind, val):
@@ -57,14 +48,17 @@ class StokesExtruded:
         # Stokes weak form
         nu = 1.0  # FIXME
         u, p = fd.split(self.up)
-        self.F = ( fd.inner(2.0 * nu * D(u), D(self.v)) \
-                 - p * fd.div(self.v) - self.q * fd.div(u) \
-                 - fd.inner(fbody, self.v) ) * fd.dx
+        v, q = fd.TestFunctions(self.Z)
+        self.F = ( fd.inner(2.0 * nu * _D(u), _D(v)) \
+                 - p * fd.div(v) - q * fd.div(u) \
+                 - fd.inner(fbody, v) ) * fd.dx
 
         # Newton-LU solve Stokes   FIXME GMG in vert, AMG in horizontal
         self.solveparams = { \
             #'snes_converged_reason': None,
-            'snes_linesearch_type': 'bt',
+            #'snes_view': None,
+            #'snes_linesearch_type': 'bt',
+            #'snes_linesearch_monitor': None,
             'snes_max_it': 200,
             'snes_rtol': 1.0e-8,
             'snes_atol': 1.0e-12,
@@ -72,7 +66,16 @@ class StokesExtruded:
             'ksp_type': 'preonly',
             'pc_type': 'lu',
             'pc_factor_shift_type': 'inblocks',
+            'pc_factor_mat_solver_type': 'mumps',
             }
         fd.solve(self.F == 0, self.up, bcs=self.bcs,
                  options_prefix='s', solver_parameters=self.solveparams)
         return u, p
+
+    def savesolution(self, name=None):
+        ''' Save u, p solution into .pvd file.'''
+        u, p = self.up.subfunctions[0], self.up.subfunctions[1]
+        u.rename('velocity (m s-1)')
+        p.rename('pressure (Pa)')
+        print('saving u,p to %s' % name)
+        fd.File(name).write(u,p)

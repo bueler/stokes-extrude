@@ -3,8 +3,8 @@
 import numpy as np
 import firedrake as fd
 
-# Newton solve Stokes
-par_defaults = { \
+# Newton solve
+par_newton = { \
     'snes_linesearch_type': 'basic',
     'snes_max_it': 200,
     'snes_rtol': 1.0e-8,
@@ -19,6 +19,8 @@ par_mumps = { \
     'pc_factor_shift_type': 'inblocks',
     'pc_factor_mat_solver_type': 'mumps',
     }
+
+# FIXME Newton steps by AMG
 
 # FIXME Newton steps by GMG in vert, AMG in horizontal
 
@@ -42,7 +44,7 @@ class StokesExtruded:
         self.dim = sum(mesh.cell_dimension())
         self.bcs = []
 
-    def setupTaylorHood(self, kp=1):
+    def mixed_TaylorHood(self, kp=1):
         # set up Taylor-Hood mixed method
         self.V = fd.VectorFunctionSpace(self.mesh, 'Lagrange', kp+1)
         self.W = fd.FunctionSpace(self.mesh, 'Lagrange', kp)
@@ -51,25 +53,21 @@ class StokesExtruded:
         return self.V.dim(), self.W.dim()
 
     def dirichlet(self, ind, val):
-        self.bcs = self.bcs + [ fd.DirichletBC(self.Z.sub(0), val, ind) ]
+        self.bcs = self.bcs + [ fd.DirichletBC(self.Z.sub(0), val, ind) ]  # append to list
+
+    def body_force(self, f):
+        self.fbody = f
+
+    def viscosity(self, nu):
+        self.nu = nu
 
     def solve(self, par=None):
-        '''Solve the Stokes problem.'''
-        # body force FIXME
-        if self.dim == 2:
-            fbody = fd.Constant((0.0, -1.0))
-        elif self.dim == 3:
-            fbody = fd.Constant((0.0, 0.0, -1.0))
-        else:
-            assert ValueError
-        # Stokes weak form
-        nu = 1.0  # FIXME
+        '''Define weak form and solve the Stokes problem.'''
         u, p = fd.split(self.up)          # get UFL objects
         v, q = fd.TestFunctions(self.Z)
-        self.F = ( fd.inner(2.0 * nu * _D(u), _D(v)) \
+        self.F = ( fd.inner(2.0 * self.nu * _D(u), _D(v)) \
                  - p * fd.div(v) - q * fd.div(u) \
-                 - fd.inner(fbody, v) ) * fd.dx
-        # solve
+                 - fd.inner(self.fbody, v) ) * fd.dx
         fd.solve(self.F == 0, self.up, bcs=self.bcs,
                  options_prefix='s', solver_parameters=par)
         u, p = self.up.subfunctions[0], self.up.subfunctions[1]

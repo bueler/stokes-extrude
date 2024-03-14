@@ -20,6 +20,21 @@ par_mumps = { \
     'pc_factor_mat_solver_type': 'mumps',
     }
 
+# Newton steps by GMRES + Schur with full formation and
+#   inversion in solving the Schur complement
+par_schur_nonscalable = { \
+    'ksp_type': 'gmres',
+    'pc_type': 'fieldsplit',
+    'pc_fieldsplit_type': 'schur',
+    'pc_fieldsplit_schur_fact_type': 'lower',
+    'pc_fieldsplit_schur_precondition': 'full',  # nonscalable inversion here
+    'fieldsplit_0_ksp_type': 'preonly',
+    'fieldsplit_0_pc_type': 'lu',                # LU on u/u block
+    'fieldsplit_1_ksp_type': 'preonly',
+    'fieldsplit_1_pc_type': 'lu',                # LU on Schur block
+    'fieldsplit_1_pc_factor_mat_solver_type': 'mumps',
+    }
+
 nu_pc_Mass = 1.0
 
 class pc_Mass(fd.AuxiliaryOperatorPC):
@@ -30,13 +45,14 @@ class pc_Mass(fd.AuxiliaryOperatorPC):
         return (a, bcs)
 
 # Newton steps by GMRES + Schur with mass-matrix preconditioning
-# FIXME doing hypre on A00 block is slower than LU on it
-par_schur = { \
+par_schur_hyper_mass = { \
     'ksp_type': 'gmres',
     #'ksp_monitor': None,
     'pc_type': 'fieldsplit',
     'pc_fieldsplit_type': 'schur',
-    'pc_fieldsplit_schur_fact_type': 'lower',
+    'pc_fieldsplit_schur_precondition': 'full',
+    #'pc_fieldsplit_schur_fact_type': 'lower',
+    'pc_fieldsplit_schur_fact_type': 'full',
     'fieldsplit_0_ksp_type': 'preonly',
     #'fieldsplit_0_pc_type': 'lu',
     #'fieldsplit_0_pc_factor_mat_solver_type': 'mumps',
@@ -45,10 +61,14 @@ par_schur = { \
     #'fieldsplit_0_pc_gamg_aggressive_square_graph': None,
     #'fieldsplit_0_pc_gamg_mis_k_minimum_degree_ordering': True,
     'fieldsplit_1_ksp_type': 'preonly',
-    'fieldsplit_1_pc_type': 'python',
-    'fieldsplit_1_pc_python_type': 'stokesextruded.pc_Mass',
-    'fieldsplit_1_aux_pc_type': 'bjacobi',
-    'fieldsplit_1_aux_sub_pc_type': 'icc',
+    #'fieldsplit_1_pc_type': 'python',
+    #'fieldsplit_1_pc_python_type': 'stokesextruded.pc_Mass',
+    #'fieldsplit_1_aux_pc_type': 'cholesky',
+    'fieldsplit_1_pc_type': 'lu',
+    #'fieldsplit_1_aux_pc_type': 'bjacobi',
+    #'fieldsplit_1_aux_sub_pc_type': 'icc',
+    #'fieldsplit_1_pc_type': 'lu',
+    #'fieldsplit_1_pc_factor_mat_solver_type': 'mumps',
     }
 
 # FIXME Newton steps by GMG in vert, AMG in horizontal

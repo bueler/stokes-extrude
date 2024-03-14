@@ -1,5 +1,5 @@
 from firedrake import *
-from stokesextruded import StokesExtruded, par_newton, par_mumps, par_schur, pc_Mass
+from stokesextruded import StokesExtruded, par_newton, par_mumps, par_schur_nonscalable, pc_Mass
 
 def revealfullname(o):
     # https://petsc.org/release/manualpages/PC/PCPythonSetType/
@@ -84,11 +84,8 @@ def test_solve_2d_slab_mumps():
     assert errornorm(u_in, u) < 1.0e-10
     #se.savesolution('result.pvd')
 
-def test_solve_2d_slab_schur():
-    #mx, mz = 6, 4
-    #mx, mz = 24, 16
-    #mx, mz = 96, 48
-    mx, mz = 300, 200
+def test_solve_2d_slab_schur_nonscalable():
+    mx, mz = 6, 4
     L, H = 10.0, 1.0
     basemesh = IntervalMesh(mx, L)
     mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
@@ -97,18 +94,45 @@ def test_solve_2d_slab_schur():
     x, z = SpatialCoordinate(mesh)
     u_in, phydro = physics_2d_slab(se, L, H, x, z)
     params = par_newton.copy()
-    params.update(par_schur)
-    params.update({'snes_converged_reason': None,
-                   'ksp_converged_reason': None})
+    params.update(par_schur_nonscalable)
+    #params.update({'snes_converged_reason': None,
+    #               'ksp_converged_reason': None})
     u, p = se.solve(par=params)
+    assert se.solver.snes.ksp.getIterationNumber() == 2
+    assert se.solver.snes.getIterationNumber() == 1
     pexact = Function(p.function_space()).interpolate(phydro)
     #se.savesolution('result.pvd')
-    assert errornorm(pexact, p) < 1.0e-6
-    assert errornorm(u_in, u) < 1.0e-6
+    assert errornorm(pexact, p) < 1.0e-10
+    assert errornorm(u_in, u) < 1.0e-10
+
+# def _test_solve_2d_slab_schur():
+#     mx, mz = 6, 4
+#     #mx, mz = 24, 16
+#     #mx, mz = 96, 48
+#     #mx, mz = 300, 200
+#     L, H = 10.0, 1.0
+#     #mx, mz = 4, 4
+#     #L, H = 1.0, 1.0
+#     basemesh = IntervalMesh(mx, L)
+#     mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
+#     se = StokesExtruded(mesh)
+#     se.mixed_TaylorHood()
+#     x, z = SpatialCoordinate(mesh)
+#     u_in, phydro = physics_2d_slab(se, L, H, x, z)
+#     params = par_newton.copy()
+#     params.update(par_schur_full_nonscalable)
+#     params.update({'snes_converged_reason': None,
+#                    'ksp_converged_reason': None})
+#     u, p = se.solve(par=params)
+#     pexact = Function(p.function_space()).interpolate(phydro)
+#     #se.savesolution('result.pvd')
+#     assert errornorm(pexact, p) < 1.0e-6
+#     assert errornorm(u_in, u) < 1.0e-6
 
 if __name__ == "__main__":
    #test_pc_mass_name()
    #test_setup_2d_th()
+   #test_setup_3d_th()
    #test_solve_2d_hydrostatic_mumps()
    #test_solve_2d_slab_mumps()
-   test_solve_2d_slab_schur()
+   test_solve_2d_slab_schur_nonscalable()

@@ -78,6 +78,7 @@ def test_solve_2d_slab_mumps():
     params = par_newton.copy()
     params.update(par_mumps)
     u, p = se.solve(par=params)
+    assert se.solver.snes.getIterationNumber() == 1
     pexact = Function(p.function_space()).interpolate(phydro)
     assert errornorm(pexact, p) < 1.0e-10
     assert errornorm(u_in, u) < 1.0e-10

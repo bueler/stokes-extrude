@@ -115,8 +115,10 @@ class StokesExtruded:
             # FIXME only implemented for side facets
             for ff in self.F_neumann:  # ff = (val, ind)
                 self.F -= fd.inner(ff[0], v) * fd.ds_v(ff[1])
-        fd.solve(self.F == 0, self.up, bcs=self.bcs,
+        self.problem = fd.NonlinearVariationalProblem(self.F, self.up, bcs=self.bcs)
+        self.solver = fd.NonlinearVariationalSolver(self.problem,
                  options_prefix='s', solver_parameters=par)
+        self.solver.solve()
         u, p = self.up.subfunctions[0], self.up.subfunctions[1]
         return u, p
 

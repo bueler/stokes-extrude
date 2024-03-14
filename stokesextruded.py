@@ -2,6 +2,7 @@
 
 import numpy as np
 import firedrake as fd
+from firedrake.output import VTKFile
 
 # Newton solve
 par_newton = { \
@@ -21,7 +22,7 @@ par_mumps = { \
     }
 
 # Newton steps by GMRES + Schur with full formation and
-#   inversion in solving the Schur complement
+#   inversion in solving the Schur complement, and LU on both blocks
 par_schur_nonscalable = { \
     'ksp_type': 'gmres',
     'pc_type': 'fieldsplit',
@@ -30,6 +31,7 @@ par_schur_nonscalable = { \
     'pc_fieldsplit_schur_precondition': 'full',  # nonscalable inversion here
     'fieldsplit_0_ksp_type': 'preonly',
     'fieldsplit_0_pc_type': 'lu',                # LU on u/u block
+    'fieldsplit_0_pc_factor_mat_solver_type': 'mumps',
     'fieldsplit_1_ksp_type': 'preonly',
     'fieldsplit_1_pc_type': 'lu',                # LU on Schur block
     'fieldsplit_1_pc_factor_mat_solver_type': 'mumps',
@@ -44,31 +46,38 @@ class pc_Mass(fd.AuxiliaryOperatorPC):
         bcs = None
         return (a, bcs)
 
-# Newton steps by GMRES + Schur with mass-matrix preconditioning
-par_schur_hyper_mass = { \
+# Newton steps by GMRES + Schur with mass-matrix preconditioning,
+#   but with LU on A00 block
+par_schur_nonscalable_mass = { \
     'ksp_type': 'gmres',
-    #'ksp_monitor': None,
     'pc_type': 'fieldsplit',
     'pc_fieldsplit_type': 'schur',
-    'pc_fieldsplit_schur_precondition': 'full',
-    #'pc_fieldsplit_schur_fact_type': 'lower',
-    'pc_fieldsplit_schur_fact_type': 'full',
+    'pc_fieldsplit_schur_fact_type': 'lower',
+    'pc_fieldsplit_schur_precondition': 'a11',  # the default
     'fieldsplit_0_ksp_type': 'preonly',
-    #'fieldsplit_0_pc_type': 'lu',
-    #'fieldsplit_0_pc_factor_mat_solver_type': 'mumps',
-    'fieldsplit_0_pc_type': 'hypre',
-    #'fieldsplit_0_pc_type': 'gamg',
-    #'fieldsplit_0_pc_gamg_aggressive_square_graph': None,
-    #'fieldsplit_0_pc_gamg_mis_k_minimum_degree_ordering': True,
+    'fieldsplit_0_pc_type': 'lu',
+    'fieldsplit_0_pc_factor_mat_solver_type': 'mumps',
     'fieldsplit_1_ksp_type': 'preonly',
-    #'fieldsplit_1_pc_type': 'python',
-    #'fieldsplit_1_pc_python_type': 'stokesextruded.pc_Mass',
-    #'fieldsplit_1_aux_pc_type': 'cholesky',
-    'fieldsplit_1_pc_type': 'lu',
-    #'fieldsplit_1_aux_pc_type': 'bjacobi',
-    #'fieldsplit_1_aux_sub_pc_type': 'icc',
-    #'fieldsplit_1_pc_type': 'lu',
-    #'fieldsplit_1_pc_factor_mat_solver_type': 'mumps',
+    'fieldsplit_1_pc_type': 'python',
+    'fieldsplit_1_pc_python_type': 'stokesextruded.pc_Mass',
+    'fieldsplit_1_aux_pc_type': 'bjacobi',
+    'fieldsplit_1_aux_sub_pc_type': 'icc',
+    }
+
+# Newton steps by GMRES + Schur with mass-matrix preconditioning FIXME
+par_schur_hypre_mass = { \
+    'ksp_type': 'gmres',
+    'pc_type': 'fieldsplit',
+    'pc_fieldsplit_type': 'schur',
+    'pc_fieldsplit_schur_fact_type': 'lower',
+    'pc_fieldsplit_schur_precondition': 'a11',  # the default
+    'fieldsplit_0_ksp_type': 'preonly',
+    'fieldsplit_0_pc_type': 'hypre',
+    'fieldsplit_1_ksp_type': 'preonly',
+    'fieldsplit_1_pc_type': 'python',
+    'fieldsplit_1_pc_python_type': 'stokesextruded.pc_Mass',
+    'fieldsplit_1_aux_pc_type': 'bjacobi',
+    'fieldsplit_1_aux_sub_pc_type': 'icc',
     }
 
 # FIXME Newton steps by GMG in vert, AMG in horizontal
@@ -148,4 +157,4 @@ class StokesExtruded:
         u.rename('velocity (m s-1)')
         p.rename('pressure (Pa)')
         print('saving u,p to %s' % name)
-        fd.File(name).write(u,p)
+        VTKFile(name).write(u,p)

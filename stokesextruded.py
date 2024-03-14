@@ -20,7 +20,36 @@ par_mumps = { \
     'pc_factor_mat_solver_type': 'mumps',
     }
 
-# FIXME Newton steps by AMG
+nu_pc_Mass = 1.0
+
+class pc_Mass(fd.AuxiliaryOperatorPC):
+
+    def form(self, pc, test, trial):
+        a = (1.0 / nu_pc_Mass) * fd.inner(test, trial) * fd.dx
+        bcs = None
+        return (a, bcs)
+
+# Newton steps by GMRES + Schur with mass-matrix preconditioning
+# FIXME doing hypre on A00 block is slower than LU on it
+par_schur = { \
+    'ksp_type': 'gmres',
+    #'ksp_monitor': None,
+    'pc_type': 'fieldsplit',
+    'pc_fieldsplit_type': 'schur',
+    'pc_fieldsplit_schur_fact_type': 'lower',
+    'fieldsplit_0_ksp_type': 'preonly',
+    #'fieldsplit_0_pc_type': 'lu',
+    #'fieldsplit_0_pc_factor_mat_solver_type': 'mumps',
+    'fieldsplit_0_pc_type': 'hypre',
+    #'fieldsplit_0_pc_type': 'gamg',
+    #'fieldsplit_0_pc_gamg_aggressive_square_graph': None,
+    #'fieldsplit_0_pc_gamg_mis_k_minimum_degree_ordering': True,
+    'fieldsplit_1_ksp_type': 'preonly',
+    'fieldsplit_1_pc_type': 'python',
+    'fieldsplit_1_pc_python_type': 'stokesextruded.pc_Mass',
+    'fieldsplit_1_aux_pc_type': 'bjacobi',
+    'fieldsplit_1_aux_sub_pc_type': 'icc',
+    }
 
 # FIXME Newton steps by GMG in vert, AMG in horizontal
 
@@ -43,6 +72,11 @@ class StokesExtruded:
         self.bdim = mesh.cell_dimension()[0]
         self.dim = sum(mesh.cell_dimension())
         self.bcs = []
+        self.F_neumann = []
+        self.Z = None
+        self.up = None
+        self.nu = None
+        self.f_body = None
 
     def mixed_TaylorHood(self, kp=1):
         # set up Taylor-Hood mixed method
@@ -53,21 +87,34 @@ class StokesExtruded:
         return self.V.dim(), self.W.dim()
 
     def dirichlet(self, ind, val):
-        self.bcs = self.bcs + [ fd.DirichletBC(self.Z.sub(0), val, ind) ]  # append to list
+        self.bcs += [ fd.DirichletBC(self.Z.sub(0), val, ind) ]  # append to list
+
+    def neumann(self, ind, val):
+        self.F_neumann += [ (val, ind) ]  # append to list
 
     def body_force(self, f):
-        self.fbody = f
+        self.f_body = f
 
     def viscosity(self, nu):
         self.nu = nu
+        nu_pc_Mass = nu
 
     def solve(self, par=None):
         '''Define weak form and solve the Stokes problem.'''
+        assert self.Z != None
+        assert self.up != None
+        assert self.nu != None
+        assert self.f_body != None
+        assert len(self.bcs) > 0          # requires some Dirichlet boundary
         u, p = fd.split(self.up)          # get UFL objects
         v, q = fd.TestFunctions(self.Z)
         self.F = ( fd.inner(2.0 * self.nu * _D(u), _D(v)) \
                  - p * fd.div(v) - q * fd.div(u) \
-                 - fd.inner(self.fbody, v) ) * fd.dx
+                 - fd.inner(self.f_body, v) ) * fd.dx
+        if len(self.F_neumann) > 0:
+            # FIXME only implemented for side facets
+            for ff in self.F_neumann:  # ff = (val, ind)
+                self.F -= fd.inner(ff[0], v) * fd.ds_v(ff[1])
         fd.solve(self.F == 0, self.up, bcs=self.bcs,
                  options_prefix='s', solver_parameters=par)
         u, p = self.up.subfunctions[0], self.up.subfunctions[1]

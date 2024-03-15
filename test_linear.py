@@ -3,7 +3,7 @@ from firedrake.petsc import PETSc
 from stokesextruded import StokesExtruded, \
                            par_newton, par_mumps, par_schur_nonscalable, \
                            pc_Mass, par_schur_nonscalable_mass, \
-                           par_schur_hypre_mass
+                           par_schur_hypre_mass, par_schur_gmg_mass
 
 printpar = PETSc.Sys.Print
 
@@ -25,7 +25,7 @@ def test_setup_2d_th():
     basemesh = UnitIntervalMesh(m)         # 1d base mesh
     mesh = ExtrudedMesh(basemesh, m)       # quad elements
     se = StokesExtruded(mesh)
-    udim, pdim = se.mixed_TaylorHood(kp=k)  # Q3 x Q2
+    udim, pdim = se.mixed_TaylorHood(kp=k) # Q3 x Q2
     assert pdim == (k * m + 1)**se.dim
     assert udim == se.dim * ((k+1) * m + 1)**se.dim
 
@@ -34,7 +34,7 @@ def test_setup_3d_th():
     basemesh = UnitSquareMesh(m, m)        # 2d base mesh
     mesh = ExtrudedMesh(basemesh, m)       # prism elements
     se = StokesExtruded(mesh)
-    udim, pdim = se.mixed_TaylorHood(kp=k)  # "P2 x P1" but prism
+    udim, pdim = se.mixed_TaylorHood(kp=k) # "P2 x P1" but prism
     assert pdim == (k * m + 1)**se.dim
     assert udim == se.dim * ((k+1) * m + 1)**se.dim
 
@@ -54,7 +54,6 @@ def test_solve_2d_hydrostatic_mumps():
     assert norm(u) < 1.0e-10
     pexact = Function(p.function_space()).interpolate(1.0 - z)
     assert errornorm(pexact, p) < 1.0e-10
-    #se.savesolution('result.pvd')
 
 def setup_physics_2d_slab(se, L, H, z):
     alpha = 0.5    # tilt in radians
@@ -159,21 +158,45 @@ def test_solve_2d_slab_schur_hypre_mass():
     assert errornorm(uexact, u) < 1.0e-8
     assert errornorm(pexact, p) < 1.0e-8
 
-def DEV_test_solve_2d_slab_schur_hypre_mass():
+def test_solve_2d_slab_schur_gmg_mass():
     mx, mz = 20, 2
-    #mx, mz = 60, 6
-    #mx, mz = 180, 18
-    #mx, mz = 540, 54
+    levs = 3
     L, H = 10.0, 1.0
-    basemesh = IntervalMesh(mx, L)
-    mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
+    basebasemesh = IntervalMesh(mx, L)
+    basehierarchy = MeshHierarchy(basebasemesh, levs - 1)
+    meshhierarchy = ExtrudedMeshHierarchy(basehierarchy, H, base_layer=mz, refinement_ratio=2)
+    mesh = meshhierarchy[-1]
     se = StokesExtruded(mesh)
     se.mixed_TaylorHood()
     x, z = SpatialCoordinate(mesh)
     setup_physics_2d_slab(se, L, H, z)
     params = par_newton.copy()
-    params.update(par_schur_hypre_mass)
+    params.update(par_schur_gmg_mass)
+    u, p = se.solve(par=params)
+    assert se.solver.snes.ksp.getIterationNumber() < 30
+    assert se.solver.snes.getIterationNumber() == 2
+    uexact, pexact = exact_2d_slab(u.function_space(), p.function_space(), L, H, z)
+    assert errornorm(uexact, u) < 1.0e-8
+    assert errornorm(pexact, p) < 1.0e-8
+
+def DEV_test_solve_2d_slab_something_mass():
+    mx, mz = 20, 2
+    levs = 3
+    L, H = 10.0, 1.0
+    basebasemesh = IntervalMesh(mx, L)
+    basehierarchy = MeshHierarchy(basebasemesh, levs - 1)
+    meshhierarchy = ExtrudedMeshHierarchy(basehierarchy, H, base_layer=mz, refinement_ratio=2)
+    mesh = meshhierarchy[-1]
+    mesh.topology_dm.viewFromOptions('-dm_view')
+    se = StokesExtruded(mesh)
+    udim, pdim = se.mixed_TaylorHood()
+    #printpar(f'finest mesh: {mx * 2**(levs-1)} x {mz * 2**(levs-1)}, n_u = {udim}, n_p = {pdim}')
+    x, z = SpatialCoordinate(mesh)
+    setup_physics_2d_slab(se, L, H, z)
+    params = par_newton.copy()
+    params.update(par_schur_gmg_mass)
     params.update({'snes_converged_reason': None,
+                   #'snes_view': None,
                    'ksp_converged_reason': None})
     u, p = se.solve(par=params)
     se.savesolution('result.pvd')
@@ -194,4 +217,5 @@ if __name__ == "__main__":
    #test_solve_2d_slab_schur_nonscalable()
    #test_solve_2d_slab_schur_nonscalable_mass()
    #test_solve_2d_slab_schur_hypre_mass()
-   DEV_test_solve_2d_slab_schur_hypre_mass()
+   test_solve_2d_slab_schur_gmg_mass()
+   #DEV_test_solve_2d_slab_schur_something_mass()

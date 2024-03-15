@@ -80,7 +80,8 @@ par_schur_nonscalable_mass = { \
     }
 
 # Newton steps by GMRES + Schur with mass-matrix preconditioning,
-#   and with hypre AMG on A00 block
+#   and with hypre algebraic multigrid on A00 block
+# note one can see A00 mat with:  -pc_hypre_mat_view :foo.m:ascii_matlab
 par_schur_hypre_mass = { \
     'ksp_type': 'gmres',
     'pc_type': 'fieldsplit',
@@ -89,6 +90,28 @@ par_schur_hypre_mass = { \
     'pc_fieldsplit_schur_precondition': 'a11',  # the default
     'fieldsplit_0_ksp_type': 'preonly',
     'fieldsplit_0_pc_type': 'hypre',
+    'fieldsplit_1_ksp_type': 'preonly',
+    'fieldsplit_1_pc_type': 'python',
+    'fieldsplit_1_pc_python_type': 'stokesextruded.pc_Mass',
+    'fieldsplit_1_aux_pc_type': 'bjacobi',
+    'fieldsplit_1_aux_sub_pc_type': 'icc',
+    }
+
+# Newton steps by GMRES + Schur with mass-matrix preconditioning,
+#   and with geometric multigrid on A00 block
+#   works with mesh built as follows (e.g.):
+#     bbmesh = [IntervalMesh()|RectangleMesh()]
+#     bhier = MeshHierarchy(bbmesh, levs - 1)
+#     mhier = ExtrudedMeshHierarchy(bhier, H, base_layer=bmz, refinement_ratio=2)
+#     mesh = mhier[-1]
+par_schur_gmg_mass = { \
+    'ksp_type': 'gmres',
+    'pc_type': 'fieldsplit',
+    'pc_fieldsplit_type': 'schur',
+    'pc_fieldsplit_schur_fact_type': 'lower',
+    'pc_fieldsplit_schur_precondition': 'a11',  # the default
+    'fieldsplit_0_ksp_type': 'preonly',
+    'fieldsplit_0_pc_type': 'mg',
     'fieldsplit_1_ksp_type': 'preonly',
     'fieldsplit_1_pc_type': 'python',
     'fieldsplit_1_pc_python_type': 'stokesextruded.pc_Mass',
@@ -181,4 +204,3 @@ class StokesExtruded:
         else:
             print('saving u,p to %s' % name)
             VTKFile(name).write(u,p)
-

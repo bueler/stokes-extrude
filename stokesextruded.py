@@ -100,6 +100,8 @@ par_schur_gmg_mass = { \
     'pc_fieldsplit_schur_precondition': 'a11',  # the default
     'fieldsplit_0_ksp_type': 'preonly',
     'fieldsplit_0_pc_type': 'mg',
+    'fieldsplit_0_mg_levels_ksp_type': 'chebyshev', #  the default
+    'fieldsplit_0_mg_levels_pc_type': 'sor',  # the default
     'fieldsplit_1_ksp_type': 'preonly',
     'fieldsplit_1_pc_type': 'python',
     'fieldsplit_1_pc_python_type': 'stokesextruded.pc_Mass',

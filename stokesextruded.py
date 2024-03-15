@@ -37,11 +37,23 @@ par_schur_nonscalable = { \
     'fieldsplit_1_pc_factor_mat_solver_type': 'mumps',
     }
 
-nu_pc_Mass = 1.0
+# to change parameters and etc., re-implement and update the
+# pc_python_type line:
+#----------------------------------------------------
+# class my_Mass(AuxiliaryOperatorPC):
+#     def form(self, pc, test, trial):
+#         my_nu = 3.14159
+#         a = (1.0 / my_nu) * inner(test, trial) * dx
+#         bcs = None
+#         return (a, bcs)
+#----------------------------------------------------
+# params.update({'fieldsplit_1_pc_python_type': '__main__.my_Mass'})
+#----------------------------------------------------
 
 class pc_Mass(fd.AuxiliaryOperatorPC):
 
     def form(self, pc, test, trial):
+        nu_pc_Mass = 1.0
         a = (1.0 / nu_pc_Mass) * fd.inner(test, trial) * fd.dx
         bcs = None
         return (a, bcs)

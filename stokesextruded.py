@@ -109,6 +109,58 @@ par_schur_gmg_mass = { \
     'fieldsplit_1_aux_sub_pc_type': 'icc',
     }
 
+# tentative state: unpreconditioned CG as smoother ... a few more
+# iterations than Cheb+SOR above, but just as fast?
+par_schur_gmg_cgnone_mass = { \
+    'ksp_type': 'fgmres',  # because CG+none as smoother is not fixed
+    'pc_type': 'fieldsplit',
+    'pc_fieldsplit_type': 'schur',
+    'pc_fieldsplit_schur_fact_type': 'lower',
+    'pc_fieldsplit_schur_precondition': 'a11',  # the default
+    'fieldsplit_0_ksp_type': 'preonly',
+    'fieldsplit_0_pc_type': 'mg',
+    'fieldsplit_0_mg_levels_ksp_type': 'cg',
+    'fieldsplit_0_mg_levels_pc_type': 'none',
+    'fieldsplit_1_ksp_type': 'preonly',
+    'fieldsplit_1_pc_type': 'python',
+    'fieldsplit_1_pc_python_type': 'stokesextruded.pc_Mass',
+    'fieldsplit_1_aux_pc_type': 'bjacobi',
+    'fieldsplit_1_aux_sub_pc_type': 'icc',
+    }
+
+# alternative to consider is "multigrid on outside and Schur complements
+# as smoother on each level".  done for this problem (Stokes) at:
+#   https://github.com/firedrakeproject/firedrake/blob/master/docs/notebooks/07-geometric-multigrid.ipynb
+
+# "Matrix free FMG with Telescoping" done for Poisson at:
+#   https://github.com/firedrakeproject/firedrake/blob/master/docs/notebooks/12-HPC_demo.ipynb
+# to do this for Stokes: nest at top level or putting multigrid on outside?
+
+# matfree for NS at:
+#  https://github.com/firedrakeproject/firedrake/blob/master/demos/matrix_free/navier_stokes.py.rst
+
+# NOTE: to head toward matrix-free application of GMG on A00 block, need to know that non-assembled (or minimally-assembled) PC works
+DEV_par_schur_gmgmf_mass = { \
+    #'mat_type': 'nest',  ???
+    #'mat_type': 'matfree',
+    'ksp_type': 'fgmres',
+    'pc_type': 'fieldsplit',
+    'pc_fieldsplit_type': 'schur',
+    'pc_fieldsplit_schur_fact_type': 'lower',
+    'pc_fieldsplit_schur_precondition': 'a11',
+    #'fieldsplit_0_mat_type': 'matfree',
+    'fieldsplit_0_ksp_type': 'preonly',
+    'fieldsplit_0_pc_type': 'mg',
+    'fieldsplit_0_mg_levels_ksp_type': 'cg',
+    'fieldsplit_0_mg_levels_pc_type': 'none',
+    #'fieldsplit_1_mat_type': 'aij',
+    'fieldsplit_1_ksp_type': 'preonly',
+    'fieldsplit_1_pc_type': 'python',
+    'fieldsplit_1_pc_python_type': 'stokesextruded.pc_Mass',
+    'fieldsplit_1_aux_pc_type': 'bjacobi',
+    'fieldsplit_1_aux_sub_pc_type': 'icc',
+    }
+
 # FIXME Newton steps by GMG in vert, AMG in horizontal
 
 def _extend(mesh, f):

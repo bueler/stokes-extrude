@@ -3,7 +3,9 @@ from firedrake.petsc import PETSc
 from stokesextruded import StokesExtruded, \
                            par_newton, par_mumps, par_schur_nonscalable, \
                            pc_Mass, par_schur_nonscalable_mass, \
-                           par_schur_hypre_mass, par_schur_gmg_mass
+                           par_schur_hypre_mass, par_schur_gmg_mass, \
+                           par_schur_gmg_cgnone_mass, \
+                           DEV_par_schur_gmgmf_mass
 
 printpar = PETSc.Sys.Print
 
@@ -181,7 +183,9 @@ def DEV_test_solve_2d_slab_schur_gmg_mass():
     printpar(f'finest mesh: {mx * 2**(levs-1)} x {mz * 2**(levs-1)}, n_u = {udim}, n_p = {pdim}')
     _setup_physics_2d_slab(mesh, se, L, H)
     params = par_newton.copy()
-    params.update(par_schur_gmg_mass)
+    params.update(DEV_par_schur_gmgmf_mass)
+    #params.update(par_schur_gmg_cgnone_mass)
+    #params.update(par_schur_gmg_mass)
     params.update({'snes_converged_reason': None,
                    #'snes_view': None,
                    'ksp_converged_reason': None})

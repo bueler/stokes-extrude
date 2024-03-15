@@ -55,7 +55,7 @@ def test_solve_2d_hydrostatic_mumps():
     pexact = Function(p.function_space()).interpolate(1.0 - z)
     assert errornorm(pexact, p) < 1.0e-10
 
-def setup_physics_2d_slab(se, L, H, z):
+def _setup_physics_2d_slab(mesh, se, L, H):
     alpha = 0.5    # tilt in radians
     g, rho0, nu0 = 9.8, 1.0, 1.0
     se.viscosity(nu0)
@@ -63,17 +63,19 @@ def setup_physics_2d_slab(se, L, H, z):
     se.body_force(Constant((CC * sin(alpha), - CC * cos(alpha))))
     se.dirichlet(('bottom',), Constant((0.0,0.0)))
     C0 = CC * sin(alpha) / nu0
+    _, z = SpatialCoordinate(mesh)
     u_in = as_vector([C0 * z * (H - z / 2), Constant(0.0)])
     se.dirichlet((1,), u_in)
     stress_out = as_vector([- CC * cos(alpha) * (H - z),
                             CC * sin(alpha) * (H - z)])
     se.neumann((2,), stress_out)
 
-def exact_2d_slab(V, W, L, H, z):
+def _exact_2d_slab(mesh, V, W, L, H):
     alpha = 0.5    # tilt in radians
     g, rho0, nu0 = 9.8, 1.0, 1.0
     CC = rho0 * g
     C0 = CC * sin(alpha) / nu0
+    _, z = SpatialCoordinate(mesh)
     uexact = Function(V).interpolate(as_vector([C0 * z * (H - z / 2), Constant(0.0)]))
     pexact = Function(W).interpolate(CC * cos(alpha) * (H - z))
     return uexact, pexact
@@ -85,13 +87,12 @@ def test_solve_2d_slab_mumps():
     mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
     se = StokesExtruded(mesh)
     se.mixed_TaylorHood()
-    x, z = SpatialCoordinate(mesh)
-    setup_physics_2d_slab(se, L, H, z)
+    _setup_physics_2d_slab(mesh, se, L, H)
     params = par_newton.copy()
     params.update(par_mumps)
     u, p = se.solve(par=params)
     assert se.solver.snes.getIterationNumber() == 1
-    uexact, pexact = exact_2d_slab(u.function_space(), p.function_space(), L, H, z)
+    uexact, pexact = _exact_2d_slab(mesh, u.function_space(), p.function_space(), L, H)
     assert errornorm(uexact, u) < 1.0e-10
     assert errornorm(pexact, p) < 1.0e-10
     #se.savesolution('result.pvd')
@@ -103,14 +104,13 @@ def test_solve_2d_slab_schur_nonscalable():
     mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
     se = StokesExtruded(mesh)
     se.mixed_TaylorHood()
-    x, z = SpatialCoordinate(mesh)
-    setup_physics_2d_slab(se, L, H, z)
+    _setup_physics_2d_slab(mesh, se, L, H)
     params = par_newton.copy()
     params.update(par_schur_nonscalable)
     u, p = se.solve(par=params)
     assert se.solver.snes.ksp.getIterationNumber() == 2  # guaranteed by theory
     assert se.solver.snes.getIterationNumber() == 1
-    uexact, pexact = exact_2d_slab(u.function_space(), p.function_space(), L, H, z)
+    uexact, pexact = _exact_2d_slab(mesh, u.function_space(), p.function_space(), L, H)
     assert errornorm(uexact, u) < 1.0e-8
     assert errornorm(pexact, p) < 1.0e-8
 
@@ -129,14 +129,13 @@ def test_solve_2d_slab_schur_nonscalable_mass():
     mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
     se = StokesExtruded(mesh)
     se.mixed_TaylorHood()
-    x, z = SpatialCoordinate(mesh)
-    setup_physics_2d_slab(se, L, H, z)
+    _setup_physics_2d_slab(mesh, se, L, H)
     params = par_newton.copy()
     params.update(par_schur_nonscalable_mass)
     u, p = se.solve(par=params)
     assert se.solver.snes.ksp.getIterationNumber() < 15
     assert se.solver.snes.getIterationNumber() == 2
-    uexact, pexact = exact_2d_slab(u.function_space(), p.function_space(), L, H, z)
+    uexact, pexact = _exact_2d_slab(mesh, u.function_space(), p.function_space(), L, H)
     assert errornorm(uexact, u) < 1.0e-8
     assert errornorm(pexact, p) < 1.0e-8
 
@@ -147,14 +146,13 @@ def test_solve_2d_slab_schur_hypre_mass():
     mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
     se = StokesExtruded(mesh)
     se.mixed_TaylorHood()
-    x, z = SpatialCoordinate(mesh)
-    setup_physics_2d_slab(se, L, H, z)
+    _setup_physics_2d_slab(mesh, se, L, H)
     params = par_newton.copy()
     params.update(par_schur_hypre_mass)
     u, p = se.solve(par=params)
     assert se.solver.snes.ksp.getIterationNumber() < 30
     assert se.solver.snes.getIterationNumber() == 2
-    uexact, pexact = exact_2d_slab(u.function_space(), p.function_space(), L, H, z)
+    uexact, pexact = _exact_2d_slab(mesh, u.function_space(), p.function_space(), L, H)
     assert errornorm(uexact, u) < 1.0e-8
     assert errornorm(pexact, p) < 1.0e-8
 
@@ -168,18 +166,17 @@ def test_solve_2d_slab_schur_gmg_mass():
     mesh = meshhierarchy[-1]
     se = StokesExtruded(mesh)
     se.mixed_TaylorHood()
-    x, z = SpatialCoordinate(mesh)
-    setup_physics_2d_slab(se, L, H, z)
+    _setup_physics_2d_slab(mesh, se, L, H)
     params = par_newton.copy()
     params.update(par_schur_gmg_mass)
     u, p = se.solve(par=params)
     assert se.solver.snes.ksp.getIterationNumber() < 30
     assert se.solver.snes.getIterationNumber() == 2
-    uexact, pexact = exact_2d_slab(u.function_space(), p.function_space(), L, H, z)
+    uexact, pexact = _exact_2d_slab(mesh, u.function_space(), p.function_space(), L, H)
     assert errornorm(uexact, u) < 1.0e-8
     assert errornorm(pexact, p) < 1.0e-8
 
-def DEV_test_solve_2d_slab_something_mass():
+def DEV_test_solve_2d_slab_schur_gmg_mass():
     mx, mz = 20, 2
     levs = 3
     L, H = 10.0, 1.0
@@ -190,9 +187,8 @@ def DEV_test_solve_2d_slab_something_mass():
     mesh.topology_dm.viewFromOptions('-dm_view')
     se = StokesExtruded(mesh)
     udim, pdim = se.mixed_TaylorHood()
-    #printpar(f'finest mesh: {mx * 2**(levs-1)} x {mz * 2**(levs-1)}, n_u = {udim}, n_p = {pdim}')
-    x, z = SpatialCoordinate(mesh)
-    setup_physics_2d_slab(se, L, H, z)
+    printpar(f'finest mesh: {mx * 2**(levs-1)} x {mz * 2**(levs-1)}, n_u = {udim}, n_p = {pdim}')
+    _setup_physics_2d_slab(mesh, se, L, H)
     params = par_newton.copy()
     params.update(par_schur_gmg_mass)
     params.update({'snes_converged_reason': None,
@@ -202,7 +198,7 @@ def DEV_test_solve_2d_slab_something_mass():
     se.savesolution('result.pvd')
     #assert se.solver.snes.ksp.getIterationNumber() < 30
     #assert se.solver.snes.getIterationNumber() == 2
-    uexact, pexact = exact_2d_slab(u.function_space(), p.function_space(), L, H, z)
+    uexact, pexact = _exact_2d_slab(mesh,u.function_space(), p.function_space(), L, H)
     #assert errornorm(uexact, u) < 1.0e-8
     #assert errornorm(pexact, p) < 1.0e-8
     printpar(errornorm(uexact, u))
@@ -217,5 +213,5 @@ if __name__ == "__main__":
    #test_solve_2d_slab_schur_nonscalable()
    #test_solve_2d_slab_schur_nonscalable_mass()
    #test_solve_2d_slab_schur_hypre_mass()
-   test_solve_2d_slab_schur_gmg_mass()
-   #DEV_test_solve_2d_slab_schur_something_mass()
+   #test_solve_2d_slab_schur_gmg_mass()
+   DEV_test_solve_2d_slab_schur_gmg_mass()

@@ -1,8 +1,11 @@
 from firedrake import *
+from firedrake.petsc import PETSc
 from stokesextruded import StokesExtruded, \
                            par_newton, par_mumps, par_schur_nonscalable, \
                            pc_Mass, par_schur_nonscalable_mass, \
                            par_schur_hypre_mass
+
+printpar = PETSc.Sys.Print
 
 def revealfullname(o):
     # https://petsc.org/release/manualpages/PC/PCPythonSetType/
@@ -156,28 +159,31 @@ def test_solve_2d_slab_schur_hypre_mass():
     assert errornorm(uexact, u) < 1.0e-8
     assert errornorm(pexact, p) < 1.0e-8
 
-def DEV_test_solve_2d_slab_schur_SOMETHING_mass():
+def DEV_test_solve_2d_slab_schur_hypre_mass():
     mx, mz = 20, 2
+    #mx, mz = 60, 6
+    #mx, mz = 180, 18
+    #mx, mz = 540, 54
     L, H = 10.0, 1.0
     basemesh = IntervalMesh(mx, L)
     mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
     se = StokesExtruded(mesh)
     se.mixed_TaylorHood()
     x, z = SpatialCoordinate(mesh)
-    u_in, phydro = setup_physics_2d_slab(se, L, H, z)
+    setup_physics_2d_slab(se, L, H, z)
     params = par_newton.copy()
     params.update(par_schur_hypre_mass)
-    #params.update({'snes_converged_reason': None,
-    #               'ksp_converged_reason': None})
+    params.update({'snes_converged_reason': None,
+                   'ksp_converged_reason': None})
     u, p = se.solve(par=params)
-    #se.savesolution('result.pvd')
-    assert se.solver.snes.ksp.getIterationNumber() < 30
-    assert se.solver.snes.getIterationNumber() == 2
-    pexact = Function(p.function_space()).interpolate(phydro)
-    assert errornorm(pexact, p) < 1.0e-8
-    assert errornorm(u_in, u) < 1.0e-8
-    #print(errornorm(pexact, p))
-    #print(errornorm(u_in, u))
+    se.savesolution('result.pvd')
+    #assert se.solver.snes.ksp.getIterationNumber() < 30
+    #assert se.solver.snes.getIterationNumber() == 2
+    uexact, pexact = exact_2d_slab(u.function_space(), p.function_space(), L, H, z)
+    #assert errornorm(uexact, u) < 1.0e-8
+    #assert errornorm(pexact, p) < 1.0e-8
+    printpar(errornorm(uexact, u))
+    printpar(errornorm(pexact, p))
 
 if __name__ == "__main__":
    #test_pc_mass_name()
@@ -186,5 +192,6 @@ if __name__ == "__main__":
    #test_solve_2d_hydrostatic_mumps()
    #test_solve_2d_slab_mumps()
    #test_solve_2d_slab_schur_nonscalable()
-   test_solve_2d_slab_schur_nonscalable_mass()
+   #test_solve_2d_slab_schur_nonscalable_mass()
    #test_solve_2d_slab_schur_hypre_mass()
+   DEV_test_solve_2d_slab_schur_hypre_mass()

@@ -3,6 +3,9 @@
 import numpy as np
 import firedrake as fd
 from firedrake.output import VTKFile
+from firedrake.petsc import PETSc
+
+printpar = PETSc.Sys.Print
 
 # Newton solve
 par_newton = { \
@@ -76,7 +79,8 @@ par_schur_nonscalable_mass = { \
     'fieldsplit_1_aux_sub_pc_type': 'icc',
     }
 
-# Newton steps by GMRES + Schur with mass-matrix preconditioning FIXME
+# Newton steps by GMRES + Schur with mass-matrix preconditioning,
+#   and with hypre AMG on A00 block
 par_schur_hypre_mass = { \
     'ksp_type': 'gmres',
     'pc_type': 'fieldsplit',
@@ -168,5 +172,13 @@ class StokesExtruded:
         u, p = self.up.subfunctions[0], self.up.subfunctions[1]
         u.rename('velocity (m s-1)')
         p.rename('pressure (Pa)')
-        print('saving u,p to %s' % name)
-        VTKFile(name).write(u,p)
+        if self.mesh.comm.size > 1:
+            printpar('saving u,p,rank to %s' % name)
+            rank = fd.Function(fd.FunctionSpace(self.mesh,'DG',0))
+            rank.dat.data[:] = self.mesh.comm.rank
+            rank.rename('rank')
+            VTKFile(name).write(u,p,rank)
+        else:
+            print('saving u,p to %s' % name)
+            VTKFile(name).write(u,p)
+

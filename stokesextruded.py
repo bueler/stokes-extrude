@@ -40,24 +40,12 @@ par_schur_nonscalable = { \
     'fieldsplit_1_pc_factor_mat_solver_type': 'mumps',
     }
 
-# to change parameters and etc., re-implement and update the
-# pc_python_type line:
-#----------------------------------------------------
-# class my_Mass(AuxiliaryOperatorPC):
-#     def form(self, pc, test, trial):
-#         my_nu = 3.14159
-#         a = (1.0 / my_nu) * inner(test, trial) * dx
-#         bcs = None
-#         return (a, bcs)
-#----------------------------------------------------
-# params.update({'fieldsplit_1_pc_python_type': '__main__.my_Mass'})
-#----------------------------------------------------
-
 class pc_Mass(fd.AuxiliaryOperatorPC):
 
     def form(self, pc, test, trial):
-        nu_pc_Mass = 1.0
-        a = (1.0 / nu_pc_Mass) * fd.inner(test, trial) * fd.dx
+        actx = self.get_appctx(pc)  # note appctx is kwarg to StokesExtruded.solve()
+        nu = actx.get('stokesextruded_nu')  # breaks if this key not in dict.
+        a = (1.0 / nu) * fd.inner(test, trial) * fd.dx
         bcs = None
         return (a, bcs)
 
@@ -165,9 +153,8 @@ class StokesExtruded:
 
     def viscosity(self, nu):
         self.nu = nu
-        nu_pc_Mass = nu
 
-    def solve(self, par=None):
+    def solve(self, par=None, appctx=None):
         '''Define weak form and solve the Stokes problem.'''
         assert self.Z != None
         assert self.up != None
@@ -183,9 +170,19 @@ class StokesExtruded:
             # FIXME only implemented for side facets
             for ff in self.F_neumann:  # ff = (val, ind)
                 self.F -= fd.inner(ff[0], v) * fd.ds_v(ff[1])
-        self.problem = fd.NonlinearVariationalProblem(self.F, self.up, bcs=self.bcs)
-        self.solver = fd.NonlinearVariationalSolver(self.problem,
-                 options_prefix='s', solver_parameters=par)
+        self.problem = fd.NonlinearVariationalProblem( \
+            self.F,
+            self.up,
+            bcs=self.bcs)
+        if appctx == None:
+            appctx = {'stokesextruded_nu': self.nu}
+        else:
+            appctx.update({'stokesextruded_nu': self.nu})
+        self.solver = fd.NonlinearVariationalSolver( \
+            self.problem,
+            options_prefix='s',
+            solver_parameters=par,
+            appctx=appctx)
         self.solver.solve()
         u, p = self.up.subfunctions[0], self.up.subfunctions[1]
         return u, p

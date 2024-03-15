@@ -95,7 +95,6 @@ def test_solve_2d_slab_mumps():
     uexact, pexact = _exact_2d_slab(mesh, u.function_space(), p.function_space(), L, H)
     assert errornorm(uexact, u) < 1.0e-10
     assert errornorm(pexact, p) < 1.0e-10
-    #se.savesolution('result.pvd')
 
 def test_solve_2d_slab_schur_nonscalable():
     mx, mz = 6, 4
@@ -113,14 +112,6 @@ def test_solve_2d_slab_schur_nonscalable():
     uexact, pexact = _exact_2d_slab(mesh, u.function_space(), p.function_space(), L, H)
     assert errornorm(uexact, u) < 1.0e-8
     assert errornorm(pexact, p) < 1.0e-8
-
-class local_pc_Mass(AuxiliaryOperatorPC):
-
-    def form(self, pc, test, trial):
-        nu = 1.0
-        a = (1.0 / nu) * inner(test, trial) * dx
-        bcs = None
-        return (a, bcs)
 
 def test_solve_2d_slab_schur_nonscalable_mass():
     mx, mz = 20, 2

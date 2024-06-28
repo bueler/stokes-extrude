@@ -1,13 +1,6 @@
 from firedrake import *
-from firedrake.petsc import PETSc
-from stokesextruded import StokesExtruded, \
-                           par_newton, par_mumps, par_schur_nonscalable, \
-                           pc_Mass, par_schur_nonscalable_mass, \
-                           par_schur_hypre_mass, par_schur_gmg_mass, \
-                           par_schur_gmg_cgnone_mass, \
-                           DEV_par_schur_gmgmf_mass
-
-printpar = PETSc.Sys.Print
+from stokesextruded import StokesExtruded, printpar
+from stokesextruded.solverparams import SolverParams, pc_Mass
 
 def revealfullname(o):
     # https://petsc.org/release/manualpages/PC/PCPythonSetType/
@@ -20,7 +13,7 @@ def revealfullname(o):
 
 def test_pc_mass_name():
     bar = pc_Mass()
-    assert revealfullname(bar) == 'stokesextruded.pc_Mass'
+    assert revealfullname(bar) == 'stokesextruded.solverparams.pc_Mass'
 
 def test_setup_2d_th():
     m, k = 2, 2
@@ -49,8 +42,8 @@ def test_solve_2d_hydrostatic_mumps():
     se.viscosity_constant(1.0)
     se.body_force(Constant((0.0, -1.0)))
     se.dirichlet((1,2,'bottom'), Constant((0.0,0.0)))
-    params = par_newton.copy()
-    params.update(par_mumps)
+    params = SolverParams['newton']
+    params.update(SolverParams['mumps'])
     u, p = se.solve(par=params)
     _, z = SpatialCoordinate(mesh)
     assert norm(u) < 1.0e-10
@@ -90,8 +83,8 @@ def test_solve_2d_slab_mumps():
     se = StokesExtruded(mesh)
     se.mixed_TaylorHood()
     _setup_physics_2d_slab(mesh, se, L, H)
-    params = par_newton.copy()
-    params.update(par_mumps)
+    params = SolverParams['newton']
+    params.update(SolverParams['mumps'])
     u, p = se.solve(par=params)
     assert se.solver.snes.getIterationNumber() == 1
     uexact, pexact = _exact_2d_slab(mesh, u.function_space(), p.function_space(), L, H)
@@ -106,8 +99,8 @@ def test_solve_2d_slab_schur_nonscalable():
     se = StokesExtruded(mesh)
     se.mixed_TaylorHood()
     _setup_physics_2d_slab(mesh, se, L, H)
-    params = par_newton.copy()
-    params.update(par_schur_nonscalable)
+    params = SolverParams['newton']
+    params.update(SolverParams['schur_nonscalable'])
     u, p = se.solve(par=params)
     assert se.solver.snes.ksp.getIterationNumber() == 2  # guaranteed by theory
     assert se.solver.snes.getIterationNumber() == 1
@@ -123,8 +116,8 @@ def test_solve_2d_slab_schur_nonscalable_mass():
     se = StokesExtruded(mesh)
     se.mixed_TaylorHood()
     _setup_physics_2d_slab(mesh, se, L, H)
-    params = par_newton.copy()
-    params.update(par_schur_nonscalable_mass)
+    params = SolverParams['newton']
+    params.update(SolverParams['schur_nonscalable_mass'])
     u, p = se.solve(par=params)
     assert se.solver.snes.ksp.getIterationNumber() < 15
     assert se.solver.snes.getIterationNumber() == 2
@@ -140,8 +133,8 @@ def test_solve_2d_slab_schur_hypre_mass():
     se = StokesExtruded(mesh)
     se.mixed_TaylorHood()
     _setup_physics_2d_slab(mesh, se, L, H)
-    params = par_newton.copy()
-    params.update(par_schur_hypre_mass)
+    params = SolverParams['newton']
+    params.update(SolverParams['schur_hypre_mass'])
     u, p = se.solve(par=params)
     assert se.solver.snes.ksp.getIterationNumber() < 30
     assert se.solver.snes.getIterationNumber() == 2
@@ -160,8 +153,8 @@ def test_solve_2d_slab_schur_gmg_mass():
     se = StokesExtruded(mesh)
     se.mixed_TaylorHood()
     _setup_physics_2d_slab(mesh, se, L, H)
-    params = par_newton.copy()
-    params.update(par_schur_gmg_mass)
+    params = SolverParams['newton']
+    params.update(SolverParams['schur_gmg_mass'])
     u, p = se.solve(par=params)
     assert se.solver.snes.ksp.getIterationNumber() < 30
     assert se.solver.snes.getIterationNumber() == 2
@@ -182,8 +175,8 @@ def DEV_test_solve_2d_slab_schur_gmg_mass():
     udim, pdim = se.mixed_TaylorHood()
     printpar(f'finest mesh: {mx * 2**(levs-1)} x {mz * 2**(levs-1)}, n_u = {udim}, n_p = {pdim}')
     _setup_physics_2d_slab(mesh, se, L, H)
-    params = par_newton.copy()
-    params.update(DEV_par_schur_gmgmf_mass)
+    params = SolverParams['newton']
+    params.update(SolverParams['DEV_schur_gmgmf_mass'])
     #params.update(par_schur_gmg_cgnone_mass)
     #params.update(par_schur_gmg_mass)
     params.update({'snes_converged_reason': None,

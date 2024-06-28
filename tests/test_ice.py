@@ -1,9 +1,6 @@
 from firedrake import *
-from firedrake.petsc import PETSc
-from stokesextruded import StokesExtruded, \
-                           par_newton, par_mumps
-
-printpar = PETSc.Sys.Print
+from stokesextruded import StokesExtruded, printpar
+from stokesextruded.solverparams import SolverParams
 
 def _setup_physics_2d_iceslab(mesh, se, L, H, alpha):
     # essentially same settings as slab-on-slope example in
@@ -46,8 +43,8 @@ def test_solve_2d_iceslab_mumps():
     se = StokesExtruded(mesh)
     se.mixed_TaylorHood()
     F = _setup_physics_2d_iceslab(mesh, se, L, H, alpha)
-    params = par_newton.copy()
-    params.update(par_mumps)
+    params = SolverParams['newton']
+    params.update(SolverParams['mumps'])
     params['snes_linesearch_type'] = 'bt'
     #params['snes_converged_reason'] = None
     #params['snes_monitor'] = None

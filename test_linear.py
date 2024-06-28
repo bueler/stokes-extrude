@@ -46,7 +46,7 @@ def test_solve_2d_hydrostatic_mumps():
     mesh = ExtrudedMesh(basemesh, m)
     se = StokesExtruded(mesh)
     se.mixed_TaylorHood()
-    se.viscosity(1.0)
+    se.viscosity_constant(1.0)
     se.body_force(Constant((0.0, -1.0)))
     se.dirichlet((1,2,'bottom'), Constant((0.0,0.0)))
     params = par_newton.copy()
@@ -60,7 +60,7 @@ def test_solve_2d_hydrostatic_mumps():
 def _setup_physics_2d_slab(mesh, se, L, H):
     alpha = 0.5    # tilt in radians
     g, rho0, nu0 = 9.8, 1.0, 1.0
-    se.viscosity(nu0)
+    se.viscosity_constant(nu0)
     CC = rho0 * g
     se.body_force(Constant((CC * sin(alpha), - CC * cos(alpha))))
     se.dirichlet(('bottom',), Constant((0.0,0.0)))

@@ -205,21 +205,28 @@ class StokesExtruded:
     def body_force(self, f):
         self.f_body = f
 
-    def viscosity(self, nu):
+    def viscosity_constant(self, nu):
         self.nu = nu
 
-    def solve(self, par=None, appctx=None):
+    def _F_linear(self, u, p, v, q):
+        FF = ( fd.inner(2.0 * self.nu * _D(u), _D(v)) \
+               - p * fd.div(v) - q * fd.div(u) \
+               - fd.inner(self.f_body, v) ) * fd.dx  # FIXME degree?
+        return FF
+
+    def solve(self, F=None, par=None, appctx=None):
         '''Define weak form and solve the Stokes problem.'''
         assert self.Z != None
         assert self.up != None
-        assert self.nu != None
         assert self.f_body != None
         assert len(self.bcs) > 0          # requires some Dirichlet boundary
         u, p = fd.split(self.up)          # get UFL objects
         v, q = fd.TestFunctions(self.Z)
-        self.F = ( fd.inner(2.0 * self.nu * _D(u), _D(v)) \
-                 - p * fd.div(v) - q * fd.div(u) \
-                 - fd.inner(self.f_body, v) ) * fd.dx
+        if F == None:
+            assert self.nu != None
+            self.F = self._F_linear(u, p, v, q)
+        else:
+            self.F = F
         if len(self.F_neumann) > 0:
             # FIXME only implemented for side facets
             for ff in self.F_neumann:  # ff = (val, ind)

@@ -1,6 +1,5 @@
 from firedrake import *
-from stokesextruded import StokesExtruded, printpar
-from stokesextruded.solverparams import SolverParams, pc_Mass
+from stokesextruded import *
 
 def revealfullname(o):
     # https://petsc.org/release/manualpages/PC/PCPythonSetType/

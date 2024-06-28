@@ -1,6 +1,5 @@
 from firedrake import *
-from stokesextruded import StokesExtruded, printpar
-from stokesextruded.solverparams import SolverParams
+from stokesextruded import *
 
 def _setup_physics_2d_iceslab(mesh, se, L, H, alpha):
     # essentially same settings as slab-on-slope example in

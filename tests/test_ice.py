@@ -22,7 +22,6 @@ def _setup_physics_2d_iceslab(mesh, se, L, H, alpha):
     stressout = as_vector([- rho * g * cos(alpha) * (H - z),
                            rho * g * sin(alpha) * (H - z)])
     se.neumann((2,), stressout)
-    #se.viscosity(nu0)
     def D(w):
         return 0.5 * (grad(w) + grad(w).T)
     u, p = split(se.up)

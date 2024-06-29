@@ -7,14 +7,6 @@ from firedrake.petsc import PETSc
 
 printpar = PETSc.Sys.Print
 
-def _extend(mesh, f):
-    '''On an extruded mesh extend a function f(x,z), already defined on the
-    base mesh, to the mesh using the 'R' constant-in-the-vertical space.'''
-    Q1R = fd.FunctionSpace(mesh, 'P', 1, vfamily='R', vdegree=0)
-    fextend = fd.Function(Q1R)
-    fextend.dat.data[:] = f.dat.data_ro[:]
-    return fextend
-
 def _D(w):
     return 0.5 * (fd.grad(w) + fd.grad(w).T)
 

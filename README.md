@@ -47,5 +47,5 @@ The above code is in `examples/minimum.py`.  Remember to activate the Firedrake 
 
 For coverage report (requires the `pytest-cov` package):
 
-    pytest --cov-report html --cov=fascd tests/
+    pytest --cov-report html --cov=stokesextruded tests/
     firefox htmlcov/index.html

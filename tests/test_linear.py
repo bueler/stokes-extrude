@@ -1,18 +1,17 @@
 from firedrake import *
 from stokesextruded import *
 
-def revealfullname(o):
+def revealfullname(obj):
     # https://petsc.org/release/manualpages/PC/PCPythonSetType/
     # https://stackoverflow.com/questions/2020014/get-fully-qualified-class-name-of-an-object-in-python
-    klass = o.__class__
-    module = klass.__module__
+    clas = obj.__class__
+    module = clas.__module__
     if module == 'builtins':
-        return klass.__qualname__ # avoid outputs like 'builtins.str'
-    return module + '.' + klass.__qualname__
+        return clas.__qualname__ # avoid outputs like 'builtins.str'
+    return module + '.' + clas.__qualname__
 
 def test_pc_mass_name():
-    bar = pc_Mass()
-    assert revealfullname(bar) == 'stokesextruded.solverparams.pc_Mass'
+    assert revealfullname(pc_Mass()) == 'stokesextruded.solverparams.pc_Mass'
 
 def test_setup_2d_th():
     m, k = 2, 2
@@ -32,19 +31,19 @@ def test_setup_3d_th():
     assert pdim == (k * m + 1)**se.dim
     assert udim == se.dim * ((k+1) * m + 1)**se.dim
 
-def test_solve_2d_hydrostatic_mumps():
-    m = 4
-    basemesh = UnitIntervalMesh(m)
+def test_solve_3d_hydrostatic_mumps():
+    m = 3
+    basemesh = UnitSquareMesh(m, m)
     mesh = ExtrudedMesh(basemesh, m)
     se = StokesExtruded(mesh)
     se.mixed_TaylorHood()
     se.viscosity_constant(1.0)
-    se.body_force(Constant((0.0, -1.0)))
-    se.dirichlet((1,2,'bottom'), Constant((0.0,0.0)))
+    se.body_force(Constant((0.0, 0.0, -1.0)))
+    se.dirichlet((1,2,3,4,'bottom'), Constant((0.0, 0.0, 0.0)))
     params = SolverParams['newton']
     params.update(SolverParams['mumps'])
     u, p = se.solve(par=params)
-    _, z = SpatialCoordinate(mesh)
+    _, _, z = SpatialCoordinate(mesh)
     assert norm(u) < 1.0e-10
     pexact = Function(p.function_space()).interpolate(1.0 - z)
     assert errornorm(pexact, p) < 1.0e-10
@@ -161,44 +160,14 @@ def test_solve_2d_slab_schur_gmg_mass():
     assert errornorm(uexact, u) < 1.0e-8
     assert errornorm(pexact, p) < 1.0e-8
 
-def DEV_test_solve_2d_slab_schur_gmg_mass():
-    mx, mz = 20, 2
-    levs = 3
-    L, H = 10.0, 1.0
-    basebasemesh = IntervalMesh(mx, L)
-    basehierarchy = MeshHierarchy(basebasemesh, levs - 1)
-    meshhierarchy = ExtrudedMeshHierarchy(basehierarchy, H, base_layer=mz, refinement_ratio=2)
-    mesh = meshhierarchy[-1]
-    mesh.topology_dm.viewFromOptions('-dm_view')
-    se = StokesExtruded(mesh)
-    udim, pdim = se.mixed_TaylorHood()
-    printpar(f'finest mesh: {mx * 2**(levs-1)} x {mz * 2**(levs-1)}, n_u = {udim}, n_p = {pdim}')
-    _setup_physics_2d_slab(mesh, se, L, H)
-    params = SolverParams['newton']
-    params.update(SolverParams['DEV_schur_gmgmf_mass'])
-    #params.update(par_schur_gmg_cgnone_mass)
-    #params.update(par_schur_gmg_mass)
-    params.update({'snes_converged_reason': None,
-                   #'snes_view': None,
-                   'ksp_converged_reason': None})
-    u, p = se.solve(par=params)
-    se.savesolution('result.pvd')
-    #assert se.solver.snes.ksp.getIterationNumber() < 30
-    #assert se.solver.snes.getIterationNumber() == 2
-    uexact, pexact = _exact_2d_slab(mesh,u.function_space(), p.function_space(), L, H)
-    #assert errornorm(uexact, u) < 1.0e-8
-    #assert errornorm(pexact, p) < 1.0e-8
-    printpar(errornorm(uexact, u))
-    printpar(errornorm(pexact, p))
-
 if __name__ == "__main__":
-   #test_pc_mass_name()
-   #test_setup_2d_th()
-   #test_setup_3d_th()
-   #test_solve_2d_hydrostatic_mumps()
-   #test_solve_2d_slab_mumps()
-   #test_solve_2d_slab_schur_nonscalable()
-   #test_solve_2d_slab_schur_nonscalable_mass()
-   #test_solve_2d_slab_schur_hypre_mass()
-   #test_solve_2d_slab_schur_gmg_mass()
-   DEV_test_solve_2d_slab_schur_gmg_mass()
+    pass
+    #test_pc_mass_name()
+    #test_setup_2d_th()
+    #test_setup_3d_th()
+    #test_solve_2d_hydrostatic_mumps()
+    #test_solve_2d_slab_mumps()
+    #test_solve_2d_slab_schur_nonscalable()
+    #test_solve_2d_slab_schur_nonscalable_mass()
+    #test_solve_2d_slab_schur_hypre_mass()
+    #test_solve_2d_slab_schur_gmg_mass()

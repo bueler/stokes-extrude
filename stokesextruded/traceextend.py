@@ -31,4 +31,4 @@ def trace_top(basemesh, mesh, f, bottom=False):
     return ftop
 
 def trace_bottom(basemesh, mesh, f):
-    return trace_bottom(basemesh, mesh, f, bottom=True)
+    return trace_top(basemesh, mesh, f, bottom=True)

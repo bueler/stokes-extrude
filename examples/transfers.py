@@ -1,3 +1,5 @@
+# FIXME rename and do something SKE related with this code
+
 from firedrake import *
 from firedrake.output import VTKFile
 from stokesextruded import *

@@ -11,9 +11,9 @@ The package is named `stokesextruded`.  The implementation is two source files:
 
 Install with pip: `pip install -e .`
 
-## minimal example
+## basic example
 
-A minimum example might look like
+A minimal example, which shows the basic functionality, might look like
 
     from firedrake import *
     from stokesextruded import *
@@ -33,11 +33,11 @@ This creates a 10 x 4 2D mesh of quadrilaterals, with P2 x P1 stable elements, o
 
 ## first run
 
-The above code is in `examples/minimum.py`.  Remember to activate the Firedrake venv before running.  View the output result with [Paraview](https://www.paraview.org/).
+The above code is in `examples/basic.py`.  Remember to activate the Firedrake venv before running.  View the output result with [Paraview](https://www.paraview.org/).
 
     $ source firedrake/bin/activate
     $ cd examples/
-    $ python3 minimum.py
+    $ python3 basic.py
     saving u,p to result.pvd
     $ paraview result.pvd
 
@@ -45,7 +45,9 @@ The above code is in `examples/minimum.py`.  Remember to activate the Firedrake 
 
     $ pytest tests/
 
-For coverage report (requires the `pytest-cov` package):
+For coverage report:
 
     pytest --cov-report html --cov=stokesextruded tests/
     firefox htmlcov/index.html
+
+This requires the `pytest-cov` pip package.

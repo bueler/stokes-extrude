@@ -23,13 +23,13 @@ A minimum example might look like
     se.mixed_TaylorHood()
     se.viscosity_constant(1.0)
     se.body_force(Constant((1.0, -1.0)))
-    se.dirichlet((1,2,'bottom'), Constant((0.0,0.0)))
+    se.dirichlet(('bottom',), Constant((0.0,0.0)))
     params = SolverParams['newton']
     params.update(SolverParams['mumps'])
     u, p = se.solve(par=params)
     se.savesolution('result.pvd')
 
-This creates a 10 x 4 2D mesh of quadrilaterals, with P2 x P1 stable elements, over a unit square.  The Stokes problem is linear, with viscosity one.  The base has zero Dirichlet (u=0) conditions but otherwise the sides are stress free.  The body force pushes rightward and downward.  One might regard this as a model of a viscous block stuck to a 45 degree slope.
+This creates a 10 x 4 2D mesh of quadrilaterals, with P2 x P1 stable elements, over a unit square.  The Stokes problem is linear, with constant viscosity one.  The base has zero Dirichlet (u=0) conditions but otherwise the sides are stress free.  The body force pushes rightward and downward.  One might regard this as a model of a viscous block glued to a 45 degree slope.
 
 ## first run
 

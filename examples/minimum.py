@@ -6,7 +6,7 @@ se = StokesExtruded(mesh)
 se.mixed_TaylorHood()
 se.viscosity_constant(1.0)
 se.body_force(Constant((1.0, -1.0)))
-se.dirichlet((1,2,'bottom'), Constant((0.0,0.0)))
+se.dirichlet(('bottom',), Constant((0.0,0.0)))
 params = SolverParams['newton']
 params.update(SolverParams['mumps'])
 u, p = se.solve(par=params)

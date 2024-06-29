@@ -70,7 +70,7 @@ x, z = SpatialCoordinate(mesh)
 XZ = Function(Vcoord).interpolate(as_vector([x, s * z]))
 mesh.coordinates.assign(XZ)
 
-P1 = FunctionSpace(mesh, 'P', 1)
+P1 = FunctionSpace(mesh, 'CG', 1)
 dummy = Function(P1).interpolate(Constant(1.0))
 VTKFile('result.pvd').write(dummy)
 
@@ -88,9 +88,18 @@ params.update({'snes_monitor': None,
 u, p = se.solve(par=params, F=_form_2d_ice(mesh, se))
 se.savesolution(name='result.pvd')
 
-# FIXME trace_top() u to get u|_s
-# FIXME trace_top() z to get s
+# FIXME trace does not seem to work, but the dollowing do?
+
+P1topbc = DirichletBC(P1, 0.0, 'top')
+P1bm = FunctionSpace(basemesh, 'CG', 1)
+sbm = Function(P1bm)
+sbm.dat.data[:] = Function(P1).interpolate(z).dat.data_with_halos[P1topbc.nodes]
+
+P2topbc = DirichletBC(u.function_space(), as_vector([0.0, 0.0]), 'top')
+VP2bm = VectorFunctionSpace(basemesh, 'CG', 2, dim=2)
+ubm = Function(VP2bm)
+ubm.dat.data[:] = Function(u.function_space()).interpolate(u).dat.data_with_halos[P2topbc.nodes]
+#print(np.shape(ubm.dat.data_ro))
+
 # FIXME s.dx and n_s = (-s.dx,1)
 # FIXME Phi = - u|_s . n_s
-
-#ptop = trace_top(basemesh, mesh, p)

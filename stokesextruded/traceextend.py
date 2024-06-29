@@ -12,6 +12,7 @@ def extend_p1_from_basemesh(mesh, f):
     fextend.dat.data[:] = f.dat.data_ro[:]
     return fextend
 
+# FIXME this does not seem to work on nontrivial geometries??
 def trace_top(basemesh, mesh, f, bottom=False):
     '''On an extruded mesh, compute the trace of any scalar function f(x,z)
     along the top.  (Trace along bottom if set to True.)  Returns a P1

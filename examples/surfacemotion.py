@@ -13,7 +13,7 @@ L = 100.0e3             # domain is [-L,L]
 # would like to make these True, so that there is no fake ice
 extrudeemptycols = False
 nominicethickness = False
-Hmin = 100.0
+Hmin = 50.0
 
 secpera = 31556926.0    # seconds per year
 g, rho = 9.81, 910.0    # m s-2, kg m-3
@@ -83,23 +83,41 @@ se.dirichlet(('bottom',), Constant((0.0,0.0)))
 params = SolverParams['newton']
 params.update(SolverParams['mumps'])
 params.update({'snes_monitor': None,
-               'snes_converged_reason': None,
-               'ksp_view_mat': ':foo.m:ascii_matlab'})
+               'snes_converged_reason': None})
 u, p = se.solve(par=params, F=_form_2d_ice(mesh, se))
 se.savesolution(name='result.pvd')
+printpar(f'u, p solution norms = {norm(u):8.3e}, {norm(p):8.3e}')
 
-# FIXME trace does not seem to work, but the dollowing do?
+# FIXME trace does not seem to work
+# the following do, but only in serial
 
 P1topbc = DirichletBC(P1, 0.0, 'top')
 P1bm = FunctionSpace(basemesh, 'CG', 1)
 sbm = Function(P1bm)
 sbm.dat.data[:] = Function(P1).interpolate(z).dat.data_with_halos[P1topbc.nodes]
+assert max(abs(sbm.dat.data - sb)) == 0.0
 
 P2topbc = DirichletBC(u.function_space(), as_vector([0.0, 0.0]), 'top')
 VP2bm = VectorFunctionSpace(basemesh, 'CG', 2, dim=2)
 ubm = Function(VP2bm)
 ubm.dat.data[:] = Function(u.function_space()).interpolate(u).dat.data_with_halos[P2topbc.nodes]
-#print(np.shape(ubm.dat.data_ro))
 
-# FIXME s.dx and n_s = (-s.dx,1)
-# FIXME Phi = - u|_s . n_s
+ns = [-sbm.dx(0), Constant(1.0)]
+Phi = Function(P1bm).interpolate(- dot(ubm, as_vector(ns)))
+
+# figure with s(x) and Phi(s)
+xx = basemesh.coordinates.dat.data
+import matplotlib.pyplot as plt
+fig, (ax1, ax2) = plt.subplots(2, 1)
+ax1.plot(xx / 1.0e3, sbm.dat.data, color='C1', label='s')
+ax1.legend(loc='upper left')
+ax1.set_xticklabels([])
+ax1.grid(visible=True)
+ax1.set_ylabel('elevation (m)')
+ax2.plot(xx / 1.0e3, Phi.dat.data * secpera, color='C2', label=r'$\Phi(s)$')
+ax2.legend(loc='upper right')
+ax2.set_ylabel(r'$\Phi$ (m a-1)')
+ax2.grid(visible=True)
+plt.xlabel('x (km)')
+plt.show()
+

@@ -7,11 +7,11 @@ def test_trace_extend_trace_2d():
     x, z = SpatialCoordinate(mesh)
     P1 = FunctionSpace(mesh, 'CG', 1)
     f = Function(P1).interpolate((x - z) * x)
-    ftop = trace_top(basemesh, mesh, f)
+    ftop = trace_scalar_to_p1(basemesh, mesh, f)
     P1base = FunctionSpace(basemesh, 'CG', 1)
     fext = extend_p1_from_basemesh(mesh, ftop)
     fdiff = Function(f.function_space()).interpolate(f - fext)
-    assert norm(trace_top(basemesh, mesh, fdiff)) < 1.0e-14
+    assert norm(trace_scalar_to_p1(basemesh, mesh, fdiff)) < 1.0e-14
 
 def test_extend_trace_3d():
     basemesh = UnitSquareMesh(3,3)
@@ -20,6 +20,19 @@ def test_extend_trace_3d():
     P1base = FunctionSpace(basemesh, 'CG', 1)
     fbase = Function(P1base).interpolate((x - y) * x + y * y)
     fext = extend_p1_from_basemesh(mesh, fbase)
-    fbase2 = trace_bottom(basemesh, mesh, fext)
-    print(errornorm(fbase, fbase2))
+    fbase2 = trace_scalar_to_p1(basemesh, mesh, fext, surface='bottom')
     assert errornorm(fbase, fbase2) < 1.0e-14
+
+def test_extend_trace_3d_nointerpolate():
+    basemesh = UnitSquareMesh(3,3)
+    mesh = ExtrudedMesh(basemesh, 2)
+    x, y = SpatialCoordinate(basemesh)
+    P1base = FunctionSpace(basemesh, 'CG', 1)
+    fbase = Function(P1base).interpolate((x - y) * x + y * y)
+    fext = extend_p1_from_basemesh(mesh, fbase)
+    P1 = FunctionSpace(mesh, 'CG', 1)
+    fext2 = Function(P1).interpolate(fext)
+    fbase2 = trace_scalar_to_p1(basemesh, mesh, fext2, surface='bottom', nointerpolate=True)
+    assert errornorm(fbase, fbase2) < 1.0e-14
+
+# see also examples/partracedemo.py

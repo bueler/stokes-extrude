@@ -37,12 +37,12 @@ def _form_2d_ice(mesh, se):
               - p * div(v) - div(u) * q - inner(se.f_body, v) ) * dx(degree=4)
     return F
 
-basemesh = IntervalMesh(mx, -L, L)
-xb = basemesh.coordinates.dat.data_ro
-
 # P. Halfar (1981), On the dynamics of the ice sheets,
 #   J. Geophys. Res. 86 (C11), 11065--11072
 # solution evaluated at t = t0, so "f(t)" = 1.0
+# following seems to work in parallel!
+basemesh = IntervalMesh(mx, -L, L)
+xb = basemesh.coordinates.dat.data_ro
 pp = 1.0 + 1.0 / nglen
 rr = nglen / (2.0 * nglen + 1.0)
 sb = np.zeros(np.shape(xb))
@@ -70,10 +70,6 @@ x, z = SpatialCoordinate(mesh)
 XZ = Function(Vcoord).interpolate(as_vector([x, s * z]))
 mesh.coordinates.assign(XZ)
 
-P1 = FunctionSpace(mesh, 'CG', 1)
-dummy = Function(P1).interpolate(Constant(1.0))
-VTKFile('result.pvd').write(dummy)
-
 se = StokesExtruded(mesh)
 se.mixed_TaylorHood()
 se.body_force(Constant((0.0, - rho * g)))
@@ -88,36 +84,41 @@ u, p = se.solve(par=params, F=_form_2d_ice(mesh, se))
 se.savesolution(name='result.pvd')
 printpar(f'u, p solution norms = {norm(u):8.3e}, {norm(p):8.3e}')
 
-# FIXME trace does not seem to work
-# the following do, but only in serial
-
-P1topbc = DirichletBC(P1, 0.0, 'top')
-P1bm = FunctionSpace(basemesh, 'CG', 1)
-sbm = Function(P1bm)
-sbm.dat.data[:] = Function(P1).interpolate(z).dat.data_with_halos[P1topbc.nodes]
-assert max(abs(sbm.dat.data - sb)) == 0.0
-
-P2topbc = DirichletBC(u.function_space(), as_vector([0.0, 0.0]), 'top')
-VP2bm = VectorFunctionSpace(basemesh, 'CG', 2, dim=2)
-ubm = Function(VP2bm)
-ubm.dat.data[:] = Function(u.function_space()).interpolate(u).dat.data_with_halos[P2topbc.nodes]
-
+sbm = trace_scalar_to_p1(basemesh, mesh, z)
+sbm.rename('surface elevation (m)')
 ns = [-sbm.dx(0), Constant(1.0)]
-Phi = Function(P1bm).interpolate(- dot(ubm, as_vector(ns)))
+ubm = trace_vector_to_p2(basemesh, mesh, u)
+ubm.rename('surface velocity (m s-1)')
 
-# figure with s(x) and Phi(s)
-xx = basemesh.coordinates.dat.data
-import matplotlib.pyplot as plt
-fig, (ax1, ax2) = plt.subplots(2, 1)
-ax1.plot(xx / 1.0e3, sbm.dat.data, color='C1', label='s')
-ax1.legend(loc='upper left')
-ax1.set_xticklabels([])
-ax1.grid(visible=True)
-ax1.set_ylabel('elevation (m)')
-ax2.plot(xx / 1.0e3, Phi.dat.data * secpera, color='C2', label=r'$\Phi(s)$')
-ax2.legend(loc='upper right')
-ax2.set_ylabel(r'$\Phi$ (m a-1)')
-ax2.grid(visible=True)
-plt.xlabel('x (km)')
-plt.show()
+P1bm = FunctionSpace(basemesh, 'CG', 1)
+Phibm = Function(P1bm).interpolate(- dot(ubm, as_vector(ns)))
+Phibm.rename('surface motion map Phi (m s-1)')
 
+if False:  # this is useful in 3D ice case
+    bmname = 'result_base.pvd'
+    if basemesh.comm.size > 1:
+        printpar('saving s,u,Phi,rank at top surface to %s' % bmname)
+        rankbm = Function(FunctionSpace(basemesh,'DG',0))
+        rankbm.dat.data[:] = basemesh.comm.rank
+        rankbm.rename('rank')
+        VTKFile(bmname).write(sbm, ubm, Phibm, rankbm)
+    else:
+        printpar('saving s,u,Phi at top surface to %s' % bmname)
+        VTKFile(bmname).write(sbm, ubm, Phibm)
+
+if basemesh.comm.size == 1:
+    # figure with s(x) and Phi(s)  [serial only]
+    xx = basemesh.coordinates.dat.data
+    import matplotlib.pyplot as plt
+    fig, (ax1, ax2) = plt.subplots(2, 1)
+    ax1.plot(xx / 1.0e3, sbm.dat.data, color='C1', label='s')
+    ax1.legend(loc='upper left')
+    ax1.set_xticklabels([])
+    ax1.grid(visible=True)
+    ax1.set_ylabel('elevation (m)')
+    ax2.plot(xx / 1.0e3, Phibm.dat.data * secpera, color='C2', label=r'$\Phi(s)$')
+    ax2.legend(loc='upper right')
+    ax2.set_ylabel(r'$\Phi$ (m a-1)')
+    ax2.grid(visible=True)
+    plt.xlabel('x (km)')
+    plt.show()

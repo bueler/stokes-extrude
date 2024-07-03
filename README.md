@@ -1,11 +1,14 @@
 # stokes-extrude
 
-A Python package for Stokes problems, including glacier cases, on extruded meshes in [Firedrake](https://www.firedrakeproject.org/).
+A Python package named `stokesextruded` for Stokes problems, including glacier cases, on extruded meshes in [Firedrake](https://www.firedrakeproject.org/).
 
-The package is named `stokesextruded`.  The implementation is two source files:
+The implementation is in 3 source files in directory `stokesextruded/`:
 
-  * `stokesextruded/stokesextruded.py`: Provides `StokesExtruded` class which solves the Stokes equations over an extruded mesh.  See `tests/` for examples.
-  * `stokesextruded/solverparams.py`: Provides a dictionary of dictionaries `SolverParams` with PETSc solver parameters.  See `tests/` for examples.
+  * `stokesextruded.py`: Provides `StokesExtruded` class which solves the Stokes equations over an extruded mesh.
+  * `solverparams.py`: A dictionary `SolverParams` containing dictionaries of PETSc solver parameters.
+  * `traceextend.py`: Tools for extending fields from the base mesh to the extruded mesh, and for computing top or bottom traces of fields on the extruded mesh.
+
+See `tests/` and `examples/` for examples.
 
 ## installation
 
@@ -47,7 +50,7 @@ The above code is in `examples/basic.py`.  Remember to activate the Firedrake ve
 
 For coverage report:
 
-    pytest --cov-report html --cov=stokesextruded tests/
-    firefox htmlcov/index.html
+    $ pytest --cov-report=html --cov=stokesextruded tests/
+    $ firefox htmlcov/index.html
 
 This requires the `pytest-cov` pip package.

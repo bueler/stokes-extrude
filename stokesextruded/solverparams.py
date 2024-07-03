@@ -17,6 +17,7 @@ class pc_Mass(fd.AuxiliaryOperatorPC):
 SolverParams = {
     "newton": {  # Newton solve
         "snes_linesearch_type": "basic",
+        #"snes_linesearch_type": "bt",  # better?
         "snes_max_it": 200,
         "snes_rtol": 1.0e-8,
         "snes_atol": 1.0e-12,

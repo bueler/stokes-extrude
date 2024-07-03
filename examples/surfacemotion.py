@@ -57,6 +57,7 @@ A3 = 3.1689e-24         # Pa-3 s-1; EISMINT I value of ice softness
 B3 = A3**(-1.0/3.0)     # Pa s(1/3);  ice hardness
 eps = 0.01
 Dtyp = 2.0 / secpera    # 2 a-1
+qq = 1.0 / nglen - 1.0
 
 def _form_stokes(mesh, se):
     def D(w):
@@ -64,8 +65,7 @@ def _form_stokes(mesh, se):
     u, p = split(se.up)
     v, q = TestFunctions(se.Z)
     Du2 = 0.5 * inner(D(u), D(u)) + (eps * Dtyp)**2.0
-    rrr = 1.0 / nglen - 1.0
-    F = ( inner(B3 * Du2**(rrr / 2.0) * D(u), D(v)) \
+    F = ( inner(B3 * Du2**(qq / 2.0) * D(u), D(v)) \
               - p * div(v) - div(u) * q - inner(se.f_body, v) ) * dx(degree=4)
     return F
 
@@ -113,14 +113,20 @@ else:
     se.dirichlet((1,2), Constant((0.0,0.0,0.0)))  # wrong if ice advances to margin
     se.dirichlet(('bottom',), Constant((0.0,0.0,0.0)))
 
+# viscosity scale needed in solvers which use pc_Mass
+Du2_0 = 10.0 * (eps * Dtyp)**2.0  # throw in factor of 10?
+nu_0 = B3 * Du2_0**(qq / 2.0)
+se.viscosity_constant(nu_0)
+
 params = SolverParams['newton']
 params.update(SolverParams['mumps'])
+#params.update(SolverParams['schur_hypre_mass']) # FIXME not working for now
 params.update({'snes_monitor': None,
                'snes_converged_reason': None})
 if dim == 2:
-    printpar(f'solving Stokes on {mx} x {mz} extruded mesh ...')
+    printpar(f'solving 2D Stokes on {mx} x {mz} extruded mesh ...')
 else:
-    printpar(f'solving Stokes on {mx} x {mx} x {mz} extruded mesh ...')
+    printpar(f'solving 3D Stokes on {mx} x {mx} x {mz} extruded mesh ...')
 n_u, n_p = se.V.dim(), se.W.dim()
 printpar(f'  sizes: n_u = {n_u}, n_p = {n_p}')
 u, p = se.solve(par=params, F=_form_stokes(mesh, se))

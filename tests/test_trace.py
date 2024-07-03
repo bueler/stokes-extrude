@@ -35,4 +35,20 @@ def test_extend_trace_3d_nointerpolate():
     fbase2 = trace_scalar_to_p1(basemesh, mesh, fext2, surface='bottom', nointerpolate=True)
     assert errornorm(fbase, fbase2) < 1.0e-14
 
+def test_trace_vector_2d():
+    basemesh = UnitIntervalMesh(5)
+    mesh = ExtrudedMesh(basemesh, 3, layer_height=1.0 / 3)
+    x, z = SpatialCoordinate(mesh)
+    P1V = VectorFunctionSpace(mesh, 'CG', 1)
+    u = Function(P1V).interpolate(as_vector([x, z]))
+    utop = trace_vector_to_p2(basemesh, mesh, u)
+    P2Vbm = VectorFunctionSpace(basemesh, 'CG', 2, dim=2)
+    xb = SpatialCoordinate(basemesh)[0]
+    udiffbm = Function(P2Vbm).interpolate(utop - as_vector([xb, 1.0]))
+    assert norm(udiffbm) < 1.0e-14
+
 # see also examples/partracedemo.py
+
+if __name__ == "__main__":
+    pass
+    #test_trace_vector_2d()

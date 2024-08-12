@@ -48,11 +48,36 @@ def test_solve_2d_iceslab_mumps():
     #params['snes_monitor'] = None
     u, p = se.solve(par=params, F=F)
     #se.savesolution('result.pvd')
-    assert se.solver.snes.getIterationNumber() < 20
+    assert se.solver.snes.getIterationNumber() < 15
     g, rho = 9.81, 910.0
     _, z = SpatialCoordinate(mesh)
     pexact = Function(p.function_space()).interpolate(rho * g * (H - z))
+    #print(errornorm(pexact, p) / norm(pexact))
+    assert errornorm(pexact, p) / norm(pexact) < 0.01
+
+def test_solve_2d_iceslab_mumps_dg():
+    mx, mz = 20, 5
+    L, H = 3000.0, 400.0
+    alpha = 0.1   # radians
+    basemesh = IntervalMesh(mx, L)
+    mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
+    se = StokesExtruded(mesh)
+    se.mixed_PkDG() # only change from test_solve_2d_iceslab_mumps()
+    F = _setup_physics_2d_iceslab(mesh, se, L, H, alpha)
+    params = SolverParams['newton']
+    params.update(SolverParams['mumps'])
+    params['snes_linesearch_type'] = 'bt'
+    #params['snes_converged_reason'] = None
+    #params['snes_monitor'] = None
+    u, p = se.solve(par=params, F=F)
+    #se.savesolution('resultdg.pvd')
+    assert se.solver.snes.getIterationNumber() < 15
+    g, rho = 9.81, 910.0
+    _, z = SpatialCoordinate(mesh)
+    pexact = Function(p.function_space()).interpolate(rho * g * (H - z))
+    #print(errornorm(pexact, p) / norm(pexact))
     assert errornorm(pexact, p) / norm(pexact) < 0.01
 
 if __name__ == "__main__":
     test_solve_2d_iceslab_mumps()
+    test_solve_2d_iceslab_mumps_dg()

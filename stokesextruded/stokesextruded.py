@@ -32,6 +32,13 @@ class StokesExtruded:
         self.up = fd.Function(self.Z)
         return self.V.dim(), self.W.dim()
 
+    def mixed_PkDG(self, ku=2, kp=1):
+        self.V = fd.VectorFunctionSpace(self.mesh, 'Lagrange', ku)
+        self.W = fd.FunctionSpace(self.mesh, 'DQ', kp)
+        self.Z = self.V * self.W
+        self.up = fd.Function(self.Z)
+        return self.V.dim(), self.W.dim()
+
     def dirichlet(self, ind, val):
         self.bcs += [ fd.DirichletBC(self.Z.sub(0), val, ind) ]  # append to list
 

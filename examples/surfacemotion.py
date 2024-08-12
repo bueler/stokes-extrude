@@ -104,6 +104,7 @@ mesh.coordinates.assign(newcoord)
 
 se = StokesExtruded(mesh)
 se.mixed_TaylorHood()
+#se.mixed_PkDG()
 if dim == 2:
     se.body_force(Constant((0.0, - rho * g)))
     se.dirichlet((1,2), Constant((0.0,0.0)))  # wrong if ice advances to margin

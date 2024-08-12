@@ -1,6 +1,6 @@
 # stokes-extrude
 
-A Python package named `stokesextruded` for Stokes problems, including glacier cases, on extruded meshes in [Firedrake](https://www.firedrakeproject.org/).
+This repository provides a Python package named `stokesextruded` for Stokes problems, including glacier cases, on extruded meshes.  The core technology is all from the [Firedrake](https://www.firedrakeproject.org/) finite element library.
 
 The implementation is in 3 source files in directory `stokesextruded/`:
 

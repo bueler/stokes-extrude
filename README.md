@@ -32,11 +32,11 @@ A minimal example, which shows the basic functionality, might look like
     u, p = se.solve(par=params)
     se.savesolution('result.pvd')
 
-This creates a 10 x 4 2D mesh of quadrilaterals, with P2 x P1 stable elements, over a unit square.  The Stokes problem is linear, with constant viscosity one.  The base has zero Dirichlet (u=0) conditions but otherwise the sides are stress free.  The body force pushes rightward and downward.  One might regard this as a model of a viscous block glued to a 45 degree slope.
+This code is in `examples/basic.py`.  It creates a 10 x 4 2D mesh of quadrilaterals, with P2 x P1 stable elements, over a unit square.  The Stokes problem is linear, with constant viscosity one.  The base has zero Dirichlet (u=0) conditions but otherwise the sides are stress free.  The body force pushes rightward and downward.  One might regard this as a model of a viscous block glued to a 45 degree slope.
 
 ## first run
 
-The above code is in `examples/basic.py`.  Remember to activate the Firedrake venv before running.  View the output result with [Paraview](https://www.paraview.org/).
+Remember to activate the Firedrake venv before running.  View the output result with [Paraview](https://www.paraview.org/).
 
     $ source firedrake/bin/activate
     $ cd examples/

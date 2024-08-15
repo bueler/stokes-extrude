@@ -134,20 +134,24 @@ u, p = se.solve(par=params, F=_form_stokes(mesh, se))
 se.savesolution(name='result.pvd')
 printpar(f'u, p solution norms = {norm(u):8.3e}, {norm(p):8.3e}')
 
+# output surface elevation in P1 ...
 sbm = trace_scalar_to_p1(basemesh, mesh, z)
 sbm.rename('surface elevation (m)')
-if dim == 2:
-    ns = [-sbm.dx(0), Constant(1.0)]
-else:
-    ns = [-sbm.dx(0), -sbm.dx(1), Constant(1.0)]
+
+# surface velocity in P2 ...
 ubm = trace_vector_to_p2(basemesh, mesh, u, dim=dim)
 ubm.rename('surface velocity (m s-1)')
 
-P1bm = FunctionSpace(basemesh, 'CG', 1)
-# observation: if interpolate() is used in next line then asymmetry results
-Phibm = Function(P1bm).project(- dot(ubm, as_vector(ns)))
+# and surface motion in DG0
+if dim == 2:
+    ns = as_vector([-sbm.dx(0), Constant(1.0)])
+else:
+    ns = as_vector([-sbm.dx(0), -sbm.dx(1), Constant(1.0)])
+DG0bm = FunctionSpace(basemesh, 'DG', 0)
+Phibm = Function(DG0bm).project(- dot(ubm, ns))
 Phibm.rename('surface motion map Phi (m s-1)')
 
+# .pvd result only in 3D
 if dim == 3:
     bmname = 'result_base.pvd'
     if basemesh.comm.size > 1:
@@ -160,8 +164,8 @@ if dim == 3:
         printpar('saving s,u,Phi at top surface to %s' % bmname)
         VTKFile(bmname).write(sbm, ubm, Phibm)
 
+# .png figure with s(x) and Phi(s)(x) only in 2D and in serial
 if dim == 2 and basemesh.comm.size == 1:
-    # figure with s(x) and Phi(s)  [serial only]
     xx = basemesh.coordinates.dat.data
     import matplotlib.pyplot as plt
     fig, (ax1, ax2) = plt.subplots(2, 1)

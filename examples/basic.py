@@ -1,8 +1,8 @@
 from firedrake import *
-from stokesextruded import *
+from stokesextrude import *
 basemesh = UnitIntervalMesh(10)
 mesh = ExtrudedMesh(basemesh, 4, layer_height=1.0 / 4)
-se = StokesExtruded(mesh)
+se = StokesExtrude(mesh)
 se.mixed_TaylorHood()
 se.viscosity_constant(1.0)
 se.body_force(Constant((1.0, -1.0)))

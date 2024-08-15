@@ -7,8 +7,8 @@ import firedrake as fd
 class pc_Mass(fd.AuxiliaryOperatorPC):
 
     def form(self, pc, test, trial):
-        actx = self.get_appctx(pc)  # appctx is kwarg to StokesExtruded.solve()
-        nu = actx.get("stokesextruded_nu")  # breaks if this key not in dict.
+        actx = self.get_appctx(pc)  # appctx is kwarg to StokesExtrude.solve()
+        nu = actx.get("stokesextrude_nu")  # breaks if this key not in dict.
         a = (1.0 / nu) * fd.inner(test, trial) * fd.dx
         bcs = None
         return (a, bcs)
@@ -57,7 +57,7 @@ SolverParams = {
         "fieldsplit_0_pc_factor_mat_solver_type": "mumps",
         "fieldsplit_1_ksp_type": "preonly",
         "fieldsplit_1_pc_type": "python",
-        "fieldsplit_1_pc_python_type": "stokesextruded.pc_Mass",
+        "fieldsplit_1_pc_python_type": "stokesextrude.pc_Mass",
         "fieldsplit_1_aux_pc_type": "bjacobi",
         "fieldsplit_1_aux_sub_pc_type": "icc",
     },
@@ -74,7 +74,7 @@ SolverParams = {
         "fieldsplit_0_pc_type": "hypre",
         "fieldsplit_1_ksp_type": "preonly",
         "fieldsplit_1_pc_type": "python",
-        "fieldsplit_1_pc_python_type": "stokesextruded.pc_Mass",
+        "fieldsplit_1_pc_python_type": "stokesextrude.pc_Mass",
         "fieldsplit_1_aux_pc_type": "bjacobi",
         "fieldsplit_1_aux_sub_pc_type": "icc",
     },
@@ -97,7 +97,7 @@ SolverParams = {
         "fieldsplit_0_mg_levels_pc_type": "sor",  # the default
         "fieldsplit_1_ksp_type": "preonly",
         "fieldsplit_1_pc_type": "python",
-        "fieldsplit_1_pc_python_type": "stokesextruded.pc_Mass",
+        "fieldsplit_1_pc_python_type": "stokesextrude.pc_Mass",
         "fieldsplit_1_aux_pc_type": "bjacobi",
         "fieldsplit_1_aux_sub_pc_type": "icc",
     },
@@ -115,7 +115,7 @@ SolverParams = {
         "fieldsplit_0_mg_levels_pc_type": "none",
         "fieldsplit_1_ksp_type": "preonly",
         "fieldsplit_1_pc_type": "python",
-        "fieldsplit_1_pc_python_type": "stokesextruded.pc_Mass",
+        "fieldsplit_1_pc_python_type": "stokesextrude.pc_Mass",
         "fieldsplit_1_aux_pc_type": "bjacobi",
         "fieldsplit_1_aux_sub_pc_type": "icc",
     },
@@ -134,7 +134,7 @@ SolverParams = {
         #'fieldsplit_1_mat_type': 'aij',
         "fieldsplit_1_ksp_type": "preonly",
         "fieldsplit_1_pc_type": "python",
-        "fieldsplit_1_pc_python_type": "stokesextruded.pc_Mass",
+        "fieldsplit_1_pc_python_type": "stokesextrude.pc_Mass",
         "fieldsplit_1_aux_pc_type": "bjacobi",
         "fieldsplit_1_aux_sub_pc_type": "icc",
     },

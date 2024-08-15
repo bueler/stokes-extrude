@@ -1,5 +1,5 @@
 from firedrake import *
-from stokesextruded import *
+from stokesextrude import *
 
 def test_trace_extend_trace_2d():
     basemesh = UnitIntervalMesh(5)

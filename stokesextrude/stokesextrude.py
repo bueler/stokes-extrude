@@ -10,7 +10,7 @@ printpar = PETSc.Sys.Print
 def _D(w):
     return 0.5 * (fd.grad(w) + fd.grad(w).T)
 
-class StokesExtruded:
+class StokesExtrude:
     '''Use Firedrake to solve a Stokes problem on an extruded mesh, exploiting a vertical mesh hierarchy for geometric multigrid in the vertical, and using algebraic multigrid over the coarse mesh.  See the documentation on extruded meshes at https://www.firedrakeproject.org/extruded-meshes.html'''
 
     def __init__(self, mesh):
@@ -79,9 +79,9 @@ class StokesExtruded:
             self.up,
             bcs=self.bcs)
         if appctx == None:
-            appctx = {'stokesextruded_nu': self.nu}
+            appctx = {'stokesextrude_nu': self.nu}
         else:
-            appctx.update({'stokesextruded_nu': self.nu})
+            appctx.update({'stokesextrude_nu': self.nu})
         self.solver = fd.NonlinearVariationalSolver( \
             self.problem,
             options_prefix='s',

@@ -1,5 +1,5 @@
 from firedrake import *
-from stokesextruded import *
+from stokesextrude import *
 
 def revealfullname(obj):
     # https://petsc.org/release/manualpages/PC/PCPythonSetType/
@@ -11,13 +11,13 @@ def revealfullname(obj):
     return module + '.' + clas.__qualname__
 
 def test_pc_mass_name():
-    assert revealfullname(pc_Mass()) == 'stokesextruded.solverparams.pc_Mass'
+    assert revealfullname(pc_Mass()) == 'stokesextrude.solverparams.pc_Mass'
 
 def test_setup_2d_th():
     m, k = 2, 2
     basemesh = UnitIntervalMesh(m)         # 1d base mesh
     mesh = ExtrudedMesh(basemesh, m)       # quad elements
-    se = StokesExtruded(mesh)
+    se = StokesExtrude(mesh)
     udim, pdim = se.mixed_TaylorHood(kp=k) # Q3 x Q2
     assert pdim == (k * m + 1)**se.dim
     assert udim == se.dim * ((k+1) * m + 1)**se.dim
@@ -26,7 +26,7 @@ def test_setup_3d_th():
     m, k = 2, 1
     basemesh = UnitSquareMesh(m, m)        # 2d base mesh
     mesh = ExtrudedMesh(basemesh, m)       # prism elements
-    se = StokesExtruded(mesh)
+    se = StokesExtrude(mesh)
     udim, pdim = se.mixed_TaylorHood(kp=k) # "P2 x P1" but prism
     assert pdim == (k * m + 1)**se.dim
     assert udim == se.dim * ((k+1) * m + 1)**se.dim
@@ -35,7 +35,7 @@ def test_solve_3d_hydrostatic_mumps():
     m = 3
     basemesh = UnitSquareMesh(m, m)
     mesh = ExtrudedMesh(basemesh, m)
-    se = StokesExtruded(mesh)
+    se = StokesExtrude(mesh)
     se.mixed_TaylorHood()
     se.viscosity_constant(1.0)
     se.body_force(Constant((0.0, 0.0, -1.0)))
@@ -78,7 +78,7 @@ def test_solve_2d_slab_mumps():
     L, H = 10.0, 1.0
     basemesh = IntervalMesh(mx, L)
     mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
-    se = StokesExtruded(mesh)
+    se = StokesExtrude(mesh)
     se.mixed_TaylorHood()
     _setup_physics_2d_slab(mesh, se, L, H)
     params = SolverParams['newton']
@@ -94,7 +94,7 @@ def test_solve_2d_slab_schur_nonscalable():
     L, H = 10.0, 1.0
     basemesh = IntervalMesh(mx, L)
     mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
-    se = StokesExtruded(mesh)
+    se = StokesExtrude(mesh)
     se.mixed_TaylorHood()
     _setup_physics_2d_slab(mesh, se, L, H)
     params = SolverParams['newton']
@@ -111,7 +111,7 @@ def test_solve_2d_slab_schur_nonscalable_mass():
     L, H = 10.0, 1.0
     basemesh = IntervalMesh(mx, L)
     mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
-    se = StokesExtruded(mesh)
+    se = StokesExtrude(mesh)
     se.mixed_TaylorHood()
     _setup_physics_2d_slab(mesh, se, L, H)
     params = SolverParams['newton']
@@ -128,7 +128,7 @@ def test_solve_2d_slab_schur_hypre_mass():
     L, H = 10.0, 1.0
     basemesh = IntervalMesh(mx, L)
     mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
-    se = StokesExtruded(mesh)
+    se = StokesExtrude(mesh)
     se.mixed_TaylorHood()
     _setup_physics_2d_slab(mesh, se, L, H)
     params = SolverParams['newton']
@@ -148,7 +148,7 @@ def test_solve_2d_slab_schur_gmg_mass():
     basehierarchy = MeshHierarchy(basebasemesh, levs - 1)
     meshhierarchy = ExtrudedMeshHierarchy(basehierarchy, H, base_layer=mz, refinement_ratio=2)
     mesh = meshhierarchy[-1]
-    se = StokesExtruded(mesh)
+    se = StokesExtrude(mesh)
     se.mixed_TaylorHood()
     _setup_physics_2d_slab(mesh, se, L, H)
     params = SolverParams['newton']

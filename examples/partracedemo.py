@@ -5,7 +5,7 @@
 #   $ for P in 1 2 3 5 6 10 11 20; do mpiexec -n $P python3 partracedemo.py; done
 
 from firedrake import *
-from stokesextruded import *
+from stokesextrude import *
 
 basemesh = UnitSquareMesh(5, 5)
 mesh = ExtrudedMesh(basemesh, 3)

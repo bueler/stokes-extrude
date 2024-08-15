@@ -1,5 +1,5 @@
 __all__ = [
-    "StokesExtruded",
+    "StokesExtrude",
     "printpar",
     "SolverParams",
     "pc_Mass",
@@ -8,7 +8,7 @@ __all__ = [
     "trace_vector_to_p2",
 ]
 
-from .stokesextruded import StokesExtruded, printpar
+from .stokesextrude import StokesExtrude, printpar
 from .solverparams import SolverParams, pc_Mass
 from .traceextend import (
     extend_p1_from_basemesh,

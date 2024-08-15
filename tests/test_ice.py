@@ -1,5 +1,5 @@
 from firedrake import *
-from stokesextruded import *
+from stokesextrude import *
 
 def _setup_physics_2d_iceslab(mesh, se, L, H, alpha):
     # essentially same settings as slab-on-slope example in
@@ -38,7 +38,7 @@ def test_solve_2d_iceslab_mumps():
     alpha = 0.1   # radians
     basemesh = IntervalMesh(mx, L)
     mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
-    se = StokesExtruded(mesh)
+    se = StokesExtrude(mesh)
     se.mixed_TaylorHood()
     F = _setup_physics_2d_iceslab(mesh, se, L, H, alpha)
     params = SolverParams['newton']
@@ -61,7 +61,7 @@ def test_solve_2d_iceslab_mumps_dg():
     alpha = 0.1   # radians
     basemesh = IntervalMesh(mx, L)
     mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
-    se = StokesExtruded(mesh)
+    se = StokesExtrude(mesh)
     se.mixed_PkDG() # only change from test_solve_2d_iceslab_mumps()
     F = _setup_physics_2d_iceslab(mesh, se, L, H, alpha)
     params = SolverParams['newton']

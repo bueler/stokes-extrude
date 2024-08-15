@@ -5,7 +5,7 @@
 import numpy as np
 from firedrake import *
 from firedrake.output import VTKFile
-from stokesextruded import *
+from stokesextrude import *
 
 if True:
     # 2D: mx x mz mesh
@@ -102,7 +102,7 @@ else:
     newcoord = Function(Vcoord).interpolate(as_vector([x, y, s * z]))
 mesh.coordinates.assign(newcoord)
 
-se = StokesExtruded(mesh)
+se = StokesExtrude(mesh)
 se.mixed_TaylorHood()
 #se.mixed_PkDG()
 if dim == 2:

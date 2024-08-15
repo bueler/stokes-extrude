@@ -1,10 +1,10 @@
 # stokes-extrude
 
-This repository provides a Python package named `stokesextruded` for Stokes problems, including glacier cases, on extruded meshes.  The core technology is all from the [Firedrake](https://www.firedrakeproject.org/) finite element library.
+This repository provides a Python package named `stokesextrude` for Stokes problems, including glacier cases, on extruded meshes.  The core technology is all from the [Firedrake](https://www.firedrakeproject.org/) finite element library.
 
-The implementation is in 3 source files in directory `stokesextruded/`:
+The implementation is in 3 source files in directory `stokesextrude/`:
 
-  * `stokesextruded.py`: Provides `StokesExtruded` class which solves the Stokes equations over an extruded mesh.
+  * `stokesextrude.py`: Provides `StokesExtrude` class which solves the Stokes equations over an extruded mesh.
   * `solverparams.py`: A dictionary `SolverParams` containing dictionaries of PETSc solver parameters.
   * `traceextend.py`: Tools for extending fields from the base mesh to the extruded mesh, and for computing top or bottom traces of fields on the extruded mesh.
 
@@ -19,10 +19,10 @@ Install with pip: `pip install -e .`
 A minimal example, which shows the basic functionality, might look like
 
     from firedrake import *
-    from stokesextruded import *
+    from stokesextrude import *
     basemesh = UnitIntervalMesh(10)
     mesh = ExtrudedMesh(basemesh, 4, layer_height=1.0 / 4)
-    se = StokesExtruded(mesh)
+    se = StokesExtrude(mesh)
     se.mixed_TaylorHood()
     se.viscosity_constant(1.0)
     se.body_force(Constant((1.0, -1.0)))
@@ -50,7 +50,7 @@ Remember to activate the Firedrake venv before running.  View the output result 
 
 For coverage report:
 
-    $ pytest --cov-report=html --cov=stokesextruded tests/
+    $ pytest --cov-report=html --cov=stokesextrude tests/
     $ firefox htmlcov/index.html
 
 This requires the `pytest-cov` pip package.

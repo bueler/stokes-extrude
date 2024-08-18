@@ -17,10 +17,12 @@ import numpy as np
 C = 10.0
 mx = 40
 mz = 10
+debug = True
 
 # extruded mesh with constant height 1.0
 basemesh = IntervalMesh(3 * mx, 3.0)  # 1d base mesh on (0,3)
 mesh = ExtrudedMesh(basemesh, layers=mz, layer_height=1.0/mz)
+mesh.topology_dm.viewFromOptions('-dm_view')  # note you only see the base mesh DMPlex
 
 # set-up semi-circle geometry on (1,2)
 xb = basemesh.coordinates.dat.data_ro
@@ -52,7 +54,10 @@ class PinchedNodes(DirichletBC):
 bcs = [DirichletBC(H, Constant(0.0), (1, 2)),
        DirichletBC(H, Constant(0.0), 'top'),
        PinchedNodes(H, Constant(0.0), None)]
-#print(PinchedNodes(H, Constant(0.0), None).nodes)
+if debug: # reveal extruded mesh numberings
+       print(DirichletBC(H, Constant(0.0), (1, 2)).nodes)
+       print(DirichletBC(H, Constant(0.0), 'top').nodes)
+       print(PinchedNodes(H, Constant(0.0), None).nodes)
 solve(F == 0, u, bcs=bcs,
       solver_parameters = {'snes_type': 'ksponly',
                            'ksp_type': 'preonly',

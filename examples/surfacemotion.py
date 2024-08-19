@@ -10,19 +10,30 @@ from firedrake import *
 from firedrake.output import VTKFile
 from stokesextrude import *
 
+# mesh parameters
 if True:
-    # 2D: mx x mz mesh
-    dim = 2
+    dim = 2 # 2D: mx x mz mesh
     mx = 101
     mz = 15
 else:
-    # 3D: mx x mx x mz mesh
-    dim = 3
+    dim = 3 # 3D: mx x mx x mz mesh
     mx = 20
     mz = 7
+
+# overall dimensions
 L = 100.0e3             # 2D: domain is [-L,L];  3D: domain is [-L,L] x [-L,L]
 R0 = 70.0e3             # Halfar dome radius
 H0 = 1200.0             # Halfar dome height
+
+# physics parameters
+secpera = 31556926.0    # seconds per year
+g, rho = 9.81, 910.0    # m s-2, kg m-3
+nglen = 3.0
+A3 = 3.1689e-24         # Pa-3 s-1; EISMINT I value of ice softness
+B3 = A3**(-1.0/3.0)     # Pa s(1/3);  ice hardness
+eps = 0.01
+Dtyp = 2.0 / secpera    # 2 a-1
+qq = 1.0 / nglen - 1.0
 
 # base mesh and extruded mesh (but before initial geometry)
 if dim == 2:
@@ -36,26 +47,6 @@ else:
     yb = basemesh.coordinates.dat.data_ro[:,1]
 mesh = ExtrudedMesh(basemesh, layers=mz, layer_height=1.0/mz)
 mesh.topology_dm.viewFromOptions('-dm_view')  # base mesh DMPlex info only
-
-# physics parameters
-secpera = 31556926.0    # seconds per year
-g, rho = 9.81, 910.0    # m s-2, kg m-3
-nglen = 3.0
-A3 = 3.1689e-24         # Pa-3 s-1; EISMINT I value of ice softness
-B3 = A3**(-1.0/3.0)     # Pa s(1/3);  ice hardness
-eps = 0.01
-Dtyp = 2.0 / secpera    # 2 a-1
-qq = 1.0 / nglen - 1.0
-
-def _form_stokes(mesh, se):
-    def D(w):
-        return 0.5 * (grad(w) + grad(w).T)
-    u, p = split(se.up)
-    v, q = TestFunctions(se.Z)
-    Du2 = 0.5 * inner(D(u), D(u)) + (eps * Dtyp)**2.0
-    F = ( inner(B3 * Du2**(qq / 2.0) * D(u), D(v)) \
-              - p * div(v) - div(u) * q - inner(se.f_body, v) ) * dx(degree=4)
-    return F
 
 # the Halfar time-dependent SIA geometry solutions, a dome with zero SMB,
 # are from:
@@ -74,24 +65,17 @@ else:
     rb = np.sqrt(xb * xb + yb * yb)
     sb[rb < R0] = H0 * (1.0 - abs(rb[rb < R0] / R0)**pp)**rr
 
-# extend sbase, defined on the base mesh, to the extruded mesh using the
-#   'R' constant-in-the-vertical space
-P1R = FunctionSpace(mesh, 'P', 1, vfamily='R', vdegree=0)
-sR = Function(P1R)
-sR.dat.data[:] = sb
-Vcoord = mesh.coordinates.function_space()
-if dim == 2:
-    x, z = SpatialCoordinate(mesh)
-    newcoord = Function(Vcoord).interpolate(as_vector([x, sR * z]))
-else:
-    x, y, z = SpatialCoordinate(mesh)
-    newcoord = Function(Vcoord).interpolate(as_vector([x, y, sR * z]))
-mesh.coordinates.assign(newcoord)
+# set geometry for the Stokes problem
+P1b = FunctionSpace(basemesh, 'P', 1)
+s = Function(P1b)
+s.dat.data[:] = sb
+se = StokesExtrude(mesh)
+se.set_elevations(0.0, s)
 
 # set up Stokes mixed method
-se = StokesExtrude(mesh)
 se.mixed_TaylorHood()
 #se.mixed_PkDG()
+se.trivializepinchcolumns()
 
 # boundary conditions
 if dim == 2:
@@ -103,31 +87,15 @@ else:
     se.dirichlet((1,2), Constant((0.0,0.0,0.0)))  # wrong if ice advances to margin
     se.dirichlet(('bottom',), Constant((0.0,0.0,0.0)))
 
-# deal with zero-thickness columns
-class IceFreeConditionVelocity(DirichletBC):
-    @utils.cached_property
-    def nodes(self):
-        # return vector P2 nodes in columns with surface elevation less than 1.0 meter
-        # warning: assumes velocity space is P2
-        P2scalar = FunctionSpace(self.function_space().mesh(), 'CG', 2)
-        sU = Function(P2scalar).interpolate(sR)
-        if dim == 2:
-            ssU = Function(self.function_space()).interpolate(as_vector([sU, sU]))
-            return np.where(ssU.dat.data_ro < 1.0)[0]
-        else:
-            sssU = Function(self.function_space()).interpolate(as_vector([sU, sU, sU]))
-            return np.where(sssU.dat.data_ro < 1.0)[0]
-class IceFreeConditionPressure(DirichletBC):
-    @utils.cached_property
-    def nodes(self):
-        # return P1 nodes in columns with surface elevation less than 1.0 meter
-        sP = Function(self.function_space()).interpolate(sR)
-        return np.where(sP.dat.data_ro < 1.0)[0]
-#print(IceFreeConditionVelocity(se.Z.sub(0), as_vector([0.0, 0.0]), None).nodes)
-#print(IceFreeConditionPressure(se.Z.sub(1), 0.0, None).nodes)
-zerovec = as_vector([0.0, 0.0]) if dim == 2 else as_vector([0.0, 0.0, 0.0])
-se.addcondition(IceFreeConditionVelocity(se.Z.sub(0), zerovec, None))
-se.addcondition(IceFreeConditionPressure(se.Z.sub(1), 0.0, None))
+def _form_stokes(mesh, se):
+    def D(w):
+        return 0.5 * (grad(w) + grad(w).T)
+    u, p = split(se.up)
+    v, q = TestFunctions(se.Z)
+    Du2 = 0.5 * inner(D(u), D(u)) + (eps * Dtyp)**2.0
+    F = ( inner(B3 * Du2**(qq / 2.0) * D(u), D(v)) \
+              - p * div(v) - div(u) * q - inner(se.f_body, v) ) * dx(degree=4)
+    return F
 
 # viscosity scale needed in solvers which use pc_Mass
 Du2_0 = 10.0 * (eps * Dtyp)**2.0  # throw in factor of 10?
@@ -150,7 +118,8 @@ se.savesolution(name='result.pvd')
 printpar(f'u, p solution norms = {norm(u):8.3e}, {norm(p):8.3e}')
 
 # output surface elevation in P1 ...
-sbm = trace_scalar_to_p1(basemesh, mesh, z)
+x = SpatialCoordinate(mesh)
+sbm = trace_scalar_to_p1(basemesh, mesh, x[dim-1])  # z = x[dim-1]
 sbm.rename('surface elevation (m)')
 
 # surface velocity in P2 ...

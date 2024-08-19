@@ -1,6 +1,9 @@
 # Construct a glacier with a Halfar profile, solve the Glen-law
 # Stokes problem, and compute its surface map output Phi(s) = - u|_s . n_s.
-# As much as possible of this code is dimension-independent.
+# As much as possible of this code is dimension-independent; the base mesh
+# can be 1D or 2D.  Note that zero-thickness columns are dealt with
+# in the solve() method by trivializing those equations; see
+# IceFreeConditionXX() methods.
 
 import numpy as np
 from firedrake import *
@@ -21,11 +24,6 @@ L = 100.0e3             # 2D: domain is [-L,L];  3D: domain is [-L,L] x [-L,L]
 R0 = 70.0e3             # Halfar dome radius
 H0 = 1200.0             # Halfar dome height
 
-# would like to make these True, so that there is no fake ice
-extrudeemptycols = False
-nominicethickness = False
-Hmin = 50.0
-
 # base mesh and extruded mesh (but before initial geometry)
 if dim == 2:
     basemesh = IntervalMesh(mx, -L, L)
@@ -36,18 +34,8 @@ else:
     basemesh.coordinates.dat.data[:, :] -= L
     xb = basemesh.coordinates.dat.data_ro[:,0]
     yb = basemesh.coordinates.dat.data_ro[:,1]
-basemesh.topology_dm.viewFromOptions('-dm_view_basemesh')
-if extrudeemptycols:
-    # extruded mesh with empty columns where there is no ice (sb == 0)
-    assert dim == 2
-    layers = np.zeros((mx, 2))
-    layers[:, 1] = mz
-    xbc = (xb[1:] + xb[:-1]) / 2.0  # coords of centers of cells
-    layers[abs(xbc) > R0, 1] = 0
-    mesh = ExtrudedMesh(basemesh, layers=layers, layer_height=1.0/mz)
-else:
-    mesh = ExtrudedMesh(basemesh, layers=mz, layer_height=1.0/mz)
-# note mesh.topology_dm.viewFromOptions() gives same result as for basemesh
+mesh = ExtrudedMesh(basemesh, layers=mz, layer_height=1.0/mz)
+mesh.topology_dm.viewFromOptions('-dm_view')  # base mesh DMPlex info only
 
 # physics parameters
 secpera = 31556926.0    # seconds per year
@@ -85,26 +73,27 @@ if dim == 2:
 else:
     rb = np.sqrt(xb * xb + yb * yb)
     sb[rb < R0] = H0 * (1.0 - abs(rb[rb < R0] / R0)**pp)**rr
-if not nominicethickness:
-    sb[sb < Hmin] = Hmin
 
 # extend sbase, defined on the base mesh, to the extruded mesh using the
 #   'R' constant-in-the-vertical space
 P1R = FunctionSpace(mesh, 'P', 1, vfamily='R', vdegree=0)
-s = Function(P1R)
-s.dat.data[:] = sb
+sR = Function(P1R)
+sR.dat.data[:] = sb
 Vcoord = mesh.coordinates.function_space()
 if dim == 2:
     x, z = SpatialCoordinate(mesh)
-    newcoord = Function(Vcoord).interpolate(as_vector([x, s * z]))
+    newcoord = Function(Vcoord).interpolate(as_vector([x, sR * z]))
 else:
     x, y, z = SpatialCoordinate(mesh)
-    newcoord = Function(Vcoord).interpolate(as_vector([x, y, s * z]))
+    newcoord = Function(Vcoord).interpolate(as_vector([x, y, sR * z]))
 mesh.coordinates.assign(newcoord)
 
+# set up Stokes mixed method
 se = StokesExtrude(mesh)
 se.mixed_TaylorHood()
 #se.mixed_PkDG()
+
+# boundary conditions
 if dim == 2:
     se.body_force(Constant((0.0, - rho * g)))
     se.dirichlet((1,2), Constant((0.0,0.0)))  # wrong if ice advances to margin
@@ -113,6 +102,32 @@ else:
     se.body_force(Constant((0.0, 0.0, - rho * g)))
     se.dirichlet((1,2), Constant((0.0,0.0,0.0)))  # wrong if ice advances to margin
     se.dirichlet(('bottom',), Constant((0.0,0.0,0.0)))
+
+# deal with zero-thickness columns
+class IceFreeConditionVelocity(DirichletBC):
+    @utils.cached_property
+    def nodes(self):
+        # return vector P2 nodes in columns with surface elevation less than 1.0 meter
+        # warning: assumes velocity space is P2
+        P2scalar = FunctionSpace(self.function_space().mesh(), 'CG', 2)
+        sU = Function(P2scalar).interpolate(sR)
+        if dim == 2:
+            ssU = Function(self.function_space()).interpolate(as_vector([sU, sU]))
+            return np.where(ssU.dat.data_ro < 1.0)[0]
+        else:
+            sssU = Function(self.function_space()).interpolate(as_vector([sU, sU, sU]))
+            return np.where(sssU.dat.data_ro < 1.0)[0]
+class IceFreeConditionPressure(DirichletBC):
+    @utils.cached_property
+    def nodes(self):
+        # return P1 nodes in columns with surface elevation less than 1.0 meter
+        sP = Function(self.function_space()).interpolate(sR)
+        return np.where(sP.dat.data_ro < 1.0)[0]
+#print(IceFreeConditionVelocity(se.Z.sub(0), as_vector([0.0, 0.0]), None).nodes)
+#print(IceFreeConditionPressure(se.Z.sub(1), 0.0, None).nodes)
+zerovec = as_vector([0.0, 0.0]) if dim == 2 else as_vector([0.0, 0.0, 0.0])
+se.addcondition(IceFreeConditionVelocity(se.Z.sub(0), zerovec, None))
+se.addcondition(IceFreeConditionPressure(se.Z.sub(1), 0.0, None))
 
 # viscosity scale needed in solvers which use pc_Mass
 Du2_0 = 10.0 * (eps * Dtyp)**2.0  # throw in factor of 10?
@@ -166,7 +181,8 @@ if dim == 3:
 
 # .png figure with s(x) and Phi(s)(x) only in 2D and in serial
 if dim == 2 and basemesh.comm.size == 1:
-    xx = basemesh.coordinates.dat.data
+    xx = basemesh.coordinates.dat.data_ro
+    xm = (xx[1:] + xx[:-1]) / 2.0
     import matplotlib.pyplot as plt
     fig, (ax1, ax2) = plt.subplots(2, 1)
     ax1.plot(xx / 1.0e3, sbm.dat.data, color='C1', label='s')
@@ -174,7 +190,7 @@ if dim == 2 and basemesh.comm.size == 1:
     ax1.set_xticklabels([])
     ax1.grid(visible=True)
     ax1.set_ylabel('elevation (m)')
-    ax2.plot(xx / 1.0e3, Phibm.dat.data * secpera, color='C2', label=r'$\Phi(s)$')
+    ax2.plot(xm / 1.0e3, Phibm.dat.data * secpera, '.', color='C2', label=r'$\Phi(s)$')
     ax2.legend(loc='upper right')
     ax2.set_ylabel(r'$\Phi$ (m a-1)')
     ax2.grid(visible=True)

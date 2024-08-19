@@ -42,6 +42,9 @@ class StokesExtrude:
     def dirichlet(self, ind, val):
         self.bcs += [ fd.DirichletBC(self.Z.sub(0), val, ind) ]  # append to list
 
+    def addcondition(self, obj):
+        self.bcs += [ obj ]  # append to list
+
     def neumann(self, ind, val):
         self.F_neumann += [ (val, ind) ]  # append to list
 

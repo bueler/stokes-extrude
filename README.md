@@ -18,6 +18,10 @@ Install with pip: `pip install -e .`
 
 A minimal example, which shows the basic functionality, might look like
 
+<div><embed src="examples/basic.py"></div>
+
+<div><object data="examples/basic.py"></object></div>
+
     from firedrake import *
     from stokesextrude import *
     basemesh = UnitIntervalMesh(10)

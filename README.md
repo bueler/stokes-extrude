@@ -48,17 +48,18 @@ $ paraview result.pvd
 
 ## capabilities
 
-In more detail, we use [Firedrake](https://www.firedrakeproject.org) to solve a Stokes problem on an extruded mesh.  The [Firedrake documentation on extruded meshes[(https://www.firedrakeproject.org/extruded-meshes.html) is a good place to start.
+In more detail, we use [Firedrake](https://www.firedrakeproject.org) to solve a Stokes problem on an extruded mesh, in 2D or 3D.  The user provides the base mesh, which will be 1D or 2D, respectively.  Elements are products of the base mesh element and an interval.
 
 Here are some capabilities:
   1. A standard linear weak form, with a user-configurable viscosity constant, is available.  Alternatively, the user can provide the weak form.
   2. One can set a variety of Dirichlet and Neumann boundary conditions.  The user is responsible for choosing a well-posed problem; e.g. at least some Dirichlet conditions should be set.
-  3. Geometry functionality includes the ability to set the upper and lower elevation from functions on the base mesh, or from scalar constants.
-  4. Zero-height columns are allowed; to do this call `StokesExtrude.trivializepinchcolumns()` after setting elevations and the mixed space.
+  3. Geometry functionality includes the ability to set the upper and lower surface elevation/location from given fields (scalar `Function`) on the base mesh, or from scalar constants.
+  4. Zero-height columns are allowed; to do this call `StokesExtrude.trivializepinchcolumns()` after setting elevations and the mixed space.  This adds conditions similar to Dirichlet conditions for all degrees of freedom which are in zero-height columns.
   5. One can use classical Taylor-Hood (P2 x P1), higher-order Taylor-Hood, or P2 x DG0.  (However, only the first-option is well-tested.)
-  6. Solvers can exploit a vertical mesh hierarchy for geometric multigrid.  Algebraic multigrid can be used over the coarse mesh.
+  6. Solvers can exploit a both a base mesh hierarchy and a vertical mesh hierarchy for geometric multigrid.  Algebraic multigrid can be used over the coarse mesh.
   7. Tests and examples are provide with linear viscosity, and with power-law viscosity suitable for glaciers.
 
+The [Firedrake documentation on extruded meshes](https://www.firedrakeproject.org/extruded-meshes.html) is a good place to start if you want to understand how these meshes work.
 
 ## pytest
 

@@ -35,7 +35,7 @@ eps = 0.01
 Dtyp = 2.0 / secpera    # 2 a-1
 qq = 1.0 / nglen - 1.0
 
-# base mesh and extruded mesh (but before initial geometry)
+# base mesh
 if dim == 2:
     basemesh = IntervalMesh(mx, -L, L)
     xb = basemesh.coordinates.dat.data_ro
@@ -45,8 +45,7 @@ else:
     basemesh.coordinates.dat.data[:, :] -= L
     xb = basemesh.coordinates.dat.data_ro[:,0]
     yb = basemesh.coordinates.dat.data_ro[:,1]
-mesh = ExtrudedMesh(basemesh, layers=mz, layer_height=1.0/mz)
-mesh.topology_dm.viewFromOptions('-dm_view')  # base mesh DMPlex info only
+basemesh.topology_dm.viewFromOptions('-dm_view')
 
 # the Halfar time-dependent SIA geometry solutions, a dome with zero SMB,
 # are from:
@@ -69,8 +68,8 @@ else:
 P1b = FunctionSpace(basemesh, 'P', 1)
 s = Function(P1b)
 s.dat.data[:] = sb
-se = StokesExtrude(mesh)
-se.set_elevations(0.0, s)
+se = StokesExtrude(basemesh, mz=mz)
+se.reset_elevations(0.0, s)
 
 # set up Stokes mixed method
 se.mixed_TaylorHood()
@@ -87,7 +86,7 @@ else:
     se.dirichlet((1,2), Constant((0.0,0.0,0.0)))  # wrong if ice advances to margin
     se.dirichlet(('bottom',), Constant((0.0,0.0,0.0)))
 
-def _form_stokes(mesh, se):
+def _form_stokes(se):
     def D(w):
         return 0.5 * (grad(w) + grad(w).T)
     u, p = split(se.up)
@@ -113,17 +112,17 @@ else:
     printpar(f'solving 3D Stokes on {mx} x {mx} x {mz} extruded mesh ...')
 n_u, n_p = se.V.dim(), se.W.dim()
 printpar(f'  sizes: n_u = {n_u}, n_p = {n_p}')
-u, p = se.solve(par=params, F=_form_stokes(mesh, se))
+u, p = se.solve(par=params, F=_form_stokes(se))
 se.savesolution(name='result.pvd')
 printpar(f'u, p solution norms = {norm(u):8.3e}, {norm(p):8.3e}')
 
 # output surface elevation in P1 ...
-x = SpatialCoordinate(mesh)
-sbm = trace_scalar_to_p1(basemesh, mesh, x[dim-1])  # z = x[dim-1]
+x = SpatialCoordinate(se.mesh)
+sbm = trace_scalar_to_p1(basemesh, se.mesh, x[dim-1])  # z = x[dim-1]
 sbm.rename('surface elevation (m)')
 
 # surface velocity in P2 ...
-ubm = trace_vector_to_p2(basemesh, mesh, u, dim=dim)
+ubm = trace_vector_to_p2(basemesh, se.mesh, u, dim=dim)
 ubm.rename('surface velocity (m s-1)')
 
 # and surface motion in DG0

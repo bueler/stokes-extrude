@@ -1,5 +1,5 @@
 from firedrake import *
-from stokesextrude import *
+from stokesextrude import trace_scalar_to_p1, extend_p1_from_basemesh, trace_vector_to_p2
 
 def test_trace_extend_trace_2d():
     basemesh = UnitIntervalMesh(5)

@@ -1,4 +1,6 @@
-'''Class for solving the Stokes problems on extruded meshes.'''
+'''Class for solving Stokes problems on extruded meshes.  Documented
+by the README.md.  See also the documentation on extruded meshes at
+https://www.firedrakeproject.org/extruded-meshes.html'''
 
 import numpy as np
 import firedrake as fd
@@ -48,33 +50,26 @@ class _PinchColumnVelocity(fd.DirichletBC):
             return np.where(hhh.dat.data_ro < self.htol)[0]
 
 class StokesExtrude:
-    '''Use Firedrake to solve a Stokes problem on an extruded mesh.
-    A standard linear weak form is available, or the user can set that.
-    Solvers can exploit a vertical mesh hierarchy for geometric multigrid.
-    (Algebraic multigrid can be used over the coarse mesh.)
 
-    Geometry functionality includes the ability to set the upper and lower
-    elevation from functions on the base mesh, or from scalar constants.
-    Zero-height columns are allowed.  (To do this call trivializepinchcolumns()
-    after setting elevations and the mixed space.)
-
-    One can use classical Taylor-Hood (P2 x P1), higher-order Taylor-Hood,
-    or P2 x DG0.  (However, only the first-option is well-tested.)
-
-    One can set a variety of Dirichlet and Neumann boundary conditions.
-    The user is responsible for choosing a well-posed problem; e.g. at
-    least some Dirichlet conditions should be set.
-
-    See the documentation on extruded meshes at
-        https://www.firedrakeproject.org/extruded-meshes.html'''
-
-    def __init__(self, mesh):
-        self.mesh = mesh
-        self.bdim = mesh.cell_dimension()[0]
-        self.dim = sum(mesh.cell_dimension())
-        self.P1R = fd.FunctionSpace(self.mesh, 'P', 1, vfamily='R', vdegree=0)
-        self.tR = fd.Constant(1.0)
+    def __init__(self, basemesh, mz=4, mesh=None):
+        # save basemesh info
+        self.basemesh = basemesh
+        tmp = basemesh.cell_dimension()
+        if np.isscalar(tmp):
+            self.basedim = tmp
+        else:
+            self.basedim = tmp[0]
+        # construct extruded mesh
+        self.dim = self.basedim + 1
+        self.mz = mz
+        if mesh == None:
+            self.mesh = fd.ExtrudedMesh(basemesh, self.mz, layer_height=1.0/self.mz)
+        else:
+            self.mesh = mesh
+        self.xorig = self.mesh.coordinates.copy(deepcopy=True) # save
         self.bR = fd.Constant(0.0)
+        self.tR = fd.Constant(1.0)
+        # empty data on mixed space, viscosity model, and boundary conditions
         self.bcs = []
         self.F_neumann = []
         self.Z = None
@@ -82,27 +77,26 @@ class StokesExtrude:
         self.nu = None
         self.f_body = None
 
-    def set_elevations(self, bottom, top):
-        # warning: assumes base mesh is P1
-        # warning: assumes original z is 0 for bottom and 1 for top
+    def reset_elevations(self, bottom, top):
         # warning: assumes bottom < top
+        P1R = fd.FunctionSpace(self.mesh, 'P', 1, vfamily='R', vdegree=0)
         if np.isscalar(bottom):
             self.bR = fd.Constant(bottom)
         else:
-            self.bR = fd.Function(self.P1R)
+            self.bR = fd.Function(P1R)
             self.bR.dat.data[:] = bottom.dat.data_ro
         if np.isscalar(top):
             self.tR = fd.Constant(top)
         else:
-            self.tR = fd.Function(self.P1R)
+            self.tR = fd.Function(P1R)
             self.tR.dat.data[:] = top.dat.data_ro
+        xo = self.xorig
+        newz = self.bR + (self.tR - self.bR) * xo[self.basedim]
         Vcoord = self.mesh.coordinates.function_space()
-        x = fd.SpatialCoordinate(self.mesh)
-        newz = self.bR + (self.tR - self.bR) * x[self.bdim]
-        if self.bdim == 1:
-            newcoord = fd.Function(Vcoord).interpolate(fd.as_vector([x[0], newz]))
+        if self.basedim == 1:
+            newcoord = fd.Function(Vcoord).interpolate(fd.as_vector([xo[0], newz]))
         else:
-            newcoord = fd.Function(Vcoord).interpolate(fd.as_vector([x[0], x[1], newz]))
+            newcoord = fd.Function(Vcoord).interpolate(fd.as_vector([xo[0], xo[1], newz]))
         self.mesh.coordinates.assign(newcoord)
 
     def mixed_TaylorHood(self, kp=1):

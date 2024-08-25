@@ -1,7 +1,7 @@
 from firedrake import *
 from stokesextrude import *
 
-def _setup_physics_2d_iceslab(mesh, se, L, H, alpha):
+def _setup_physics_2d_iceslab(se, L, H, alpha):
     # essentially same settings as slab-on-slope example in
     #   https://github.com/bueler/mccarthy/tree/master/stokes
     secpera = 31556926.0    # seconds per year
@@ -13,7 +13,7 @@ def _setup_physics_2d_iceslab(mesh, se, L, H, alpha):
     Dtyp = 2.0 / secpera    # 2 a-1
     se.body_force(Constant((rho * g * sin(alpha), - rho * g * cos(alpha))))
     se.dirichlet(('bottom',), Constant((0.0,0.0)))
-    _, z = SpatialCoordinate(mesh)
+    _, z = SpatialCoordinate(se.mesh)
     C = (2.0 / (nglen + 1.0)) \
         * (rho * g * sin(alpha) / B3)**nglen
     uin = as_vector([C * (H**(nglen + 1.0) - (H - z)**(nglen + 1.0)),
@@ -37,10 +37,10 @@ def test_solve_2d_iceslab_mumps():
     L, H = 3000.0, 400.0
     alpha = 0.1   # radians
     basemesh = IntervalMesh(mx, L)
-    mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
-    se = StokesExtrude(mesh)
+    se = StokesExtrude(basemesh, mz=mz)
+    se.reset_elevations(Constant(0.0), Constant(H))
     se.mixed_TaylorHood()
-    F = _setup_physics_2d_iceslab(mesh, se, L, H, alpha)
+    F = _setup_physics_2d_iceslab(se, L, H, alpha)
     params = SolverParams['newton']
     params.update(SolverParams['mumps'])
     params['snes_linesearch_type'] = 'bt'
@@ -50,7 +50,7 @@ def test_solve_2d_iceslab_mumps():
     #se.savesolution('result.pvd')
     assert se.solver.snes.getIterationNumber() < 15
     g, rho = 9.81, 910.0
-    _, z = SpatialCoordinate(mesh)
+    _, z = SpatialCoordinate(se.mesh)
     pexact = Function(p.function_space()).interpolate(rho * g * (H - z))
     #print(errornorm(pexact, p) / norm(pexact))
     assert errornorm(pexact, p) / norm(pexact) < 0.01
@@ -60,10 +60,10 @@ def test_solve_2d_iceslab_mumps_dg():
     L, H = 3000.0, 400.0
     alpha = 0.1   # radians
     basemesh = IntervalMesh(mx, L)
-    mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
-    se = StokesExtrude(mesh)
+    se = StokesExtrude(basemesh, mz=mz)
+    se.reset_elevations(Constant(0.0), Constant(H))
     se.mixed_PkDG() # only change from test_solve_2d_iceslab_mumps()
-    F = _setup_physics_2d_iceslab(mesh, se, L, H, alpha)
+    F = _setup_physics_2d_iceslab(se, L, H, alpha)
     params = SolverParams['newton']
     params.update(SolverParams['mumps'])
     params['snes_linesearch_type'] = 'bt'
@@ -73,7 +73,7 @@ def test_solve_2d_iceslab_mumps_dg():
     #se.savesolution('resultdg.pvd')
     assert se.solver.snes.getIterationNumber() < 15
     g, rho = 9.81, 910.0
-    _, z = SpatialCoordinate(mesh)
+    _, z = SpatialCoordinate(se.mesh)
     pexact = Function(p.function_space()).interpolate(rho * g * (H - z))
     #print(errornorm(pexact, p) / norm(pexact))
     assert errornorm(pexact, p) / norm(pexact) < 0.01

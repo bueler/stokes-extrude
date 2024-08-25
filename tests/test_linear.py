@@ -15,18 +15,16 @@ def test_pc_mass_name():
 
 def test_setup_2d_th():
     m, k = 2, 2
-    basemesh = UnitIntervalMesh(m)         # 1d base mesh
-    mesh = ExtrudedMesh(basemesh, m)       # quad elements
-    se = StokesExtrude(mesh)
-    udim, pdim = se.mixed_TaylorHood(kp=k) # Q3 x Q2
+    basemesh = UnitIntervalMesh(m)           # 1d base mesh
+    se = StokesExtrude(basemesh, mz=m)       # quad elements
+    udim, pdim = se.mixed_TaylorHood(kp=k)   # Q3 x Q2
     assert pdim == (k * m + 1)**se.dim
     assert udim == se.dim * ((k+1) * m + 1)**se.dim
 
 def test_setup_3d_th():
     m, k = 2, 1
     basemesh = UnitSquareMesh(m, m)        # 2d base mesh
-    mesh = ExtrudedMesh(basemesh, m)       # prism elements
-    se = StokesExtrude(mesh)
+    se = StokesExtrude(basemesh, mz=m)     # prism elements
     udim, pdim = se.mixed_TaylorHood(kp=k) # "P2 x P1" but prism
     assert pdim == (k * m + 1)**se.dim
     assert udim == se.dim * ((k+1) * m + 1)**se.dim
@@ -34,8 +32,7 @@ def test_setup_3d_th():
 def test_solve_3d_hydrostatic_mumps():
     m = 3
     basemesh = UnitSquareMesh(m, m)
-    mesh = ExtrudedMesh(basemesh, m)
-    se = StokesExtrude(mesh)
+    se = StokesExtrude(basemesh, mz=m)   # prism elements
     se.mixed_TaylorHood()
     se.viscosity_constant(1.0)
     se.body_force(Constant((0.0, 0.0, -1.0)))
@@ -43,12 +40,12 @@ def test_solve_3d_hydrostatic_mumps():
     params = SolverParams['newton']
     params.update(SolverParams['mumps'])
     u, p = se.solve(par=params)
-    _, _, z = SpatialCoordinate(mesh)
+    _, _, z = SpatialCoordinate(se.mesh)
     assert norm(u) < 1.0e-10
     pexact = Function(p.function_space()).interpolate(1.0 - z)
     assert errornorm(pexact, p) < 1.0e-10
 
-def _setup_physics_2d_slab(mesh, se, L, H):
+def _setup_physics_2d_slab(se, L, H):
     alpha = 0.5    # tilt in radians
     g, rho0, nu0 = 9.8, 1.0, 1.0
     se.viscosity_constant(nu0)
@@ -56,7 +53,7 @@ def _setup_physics_2d_slab(mesh, se, L, H):
     se.body_force(Constant((CC * sin(alpha), - CC * cos(alpha))))
     se.dirichlet(('bottom',), Constant((0.0,0.0)))
     C0 = CC * sin(alpha) / nu0
-    _, z = SpatialCoordinate(mesh)
+    _, z = SpatialCoordinate(se.mesh)
     u_in = as_vector([C0 * z * (H - z / 2), Constant(0.0)])
     se.dirichlet((1,), u_in)
     stress_out = as_vector([- CC * cos(alpha) * (H - z),
@@ -77,15 +74,15 @@ def test_solve_2d_slab_mumps():
     mx, mz = 6, 4
     L, H = 10.0, 1.0
     basemesh = IntervalMesh(mx, L)
-    mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
-    se = StokesExtrude(mesh)
+    se = StokesExtrude(basemesh, mz=mz)
+    se.reset_elevations(Constant(0.0), Constant(H))
     se.mixed_TaylorHood()
-    _setup_physics_2d_slab(mesh, se, L, H)
+    _setup_physics_2d_slab(se, L, H)
     params = SolverParams['newton']
     params.update(SolverParams['mumps'])
     u, p = se.solve(par=params)
     assert se.solver.snes.getIterationNumber() == 1
-    uexact, pexact = _exact_2d_slab(mesh, u.function_space(), p.function_space(), L, H)
+    uexact, pexact = _exact_2d_slab(se.mesh, u.function_space(), p.function_space(), L, H)
     assert errornorm(uexact, u) < 1.0e-10
     assert errornorm(pexact, p) < 1.0e-10
 
@@ -93,16 +90,16 @@ def test_solve_2d_slab_schur_nonscalable():
     mx, mz = 6, 4
     L, H = 10.0, 1.0
     basemesh = IntervalMesh(mx, L)
-    mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
-    se = StokesExtrude(mesh)
+    se = StokesExtrude(basemesh, mz=mz)
+    se.reset_elevations(Constant(0.0), Constant(H))
     se.mixed_TaylorHood()
-    _setup_physics_2d_slab(mesh, se, L, H)
+    _setup_physics_2d_slab(se, L, H)
     params = SolverParams['newton']
     params.update(SolverParams['schur_nonscalable'])
     u, p = se.solve(par=params)
     assert se.solver.snes.ksp.getIterationNumber() == 2  # guaranteed by theory
     assert se.solver.snes.getIterationNumber() == 1
-    uexact, pexact = _exact_2d_slab(mesh, u.function_space(), p.function_space(), L, H)
+    uexact, pexact = _exact_2d_slab(se.mesh, u.function_space(), p.function_space(), L, H)
     assert errornorm(uexact, u) < 1.0e-8
     assert errornorm(pexact, p) < 1.0e-8
 
@@ -110,16 +107,16 @@ def test_solve_2d_slab_schur_nonscalable_mass():
     mx, mz = 20, 2
     L, H = 10.0, 1.0
     basemesh = IntervalMesh(mx, L)
-    mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
-    se = StokesExtrude(mesh)
+    se = StokesExtrude(basemesh, mz=mz)
+    se.reset_elevations(Constant(0.0), Constant(H))
     se.mixed_TaylorHood()
-    _setup_physics_2d_slab(mesh, se, L, H)
+    _setup_physics_2d_slab(se, L, H)
     params = SolverParams['newton']
     params.update(SolverParams['schur_nonscalable_mass'])
     u, p = se.solve(par=params)
     assert se.solver.snes.ksp.getIterationNumber() < 15
     assert se.solver.snes.getIterationNumber() == 2
-    uexact, pexact = _exact_2d_slab(mesh, u.function_space(), p.function_space(), L, H)
+    uexact, pexact = _exact_2d_slab(se.mesh, u.function_space(), p.function_space(), L, H)
     assert errornorm(uexact, u) < 1.0e-8
     assert errornorm(pexact, p) < 1.0e-8
 
@@ -127,16 +124,16 @@ def test_solve_2d_slab_schur_hypre_mass():
     mx, mz = 20, 2
     L, H = 10.0, 1.0
     basemesh = IntervalMesh(mx, L)
-    mesh = ExtrudedMesh(basemesh, mz, layer_height=H / mz)
-    se = StokesExtrude(mesh)
+    se = StokesExtrude(basemesh, mz=mz)
+    se.reset_elevations(Constant(0.0), Constant(H))
     se.mixed_TaylorHood()
-    _setup_physics_2d_slab(mesh, se, L, H)
+    _setup_physics_2d_slab(se, L, H)
     params = SolverParams['newton']
     params.update(SolverParams['schur_hypre_mass'])
     u, p = se.solve(par=params)
     assert se.solver.snes.ksp.getIterationNumber() < 30
     assert se.solver.snes.getIterationNumber() == 2
-    uexact, pexact = _exact_2d_slab(mesh, u.function_space(), p.function_space(), L, H)
+    uexact, pexact = _exact_2d_slab(se.mesh, u.function_space(), p.function_space(), L, H)
     assert errornorm(uexact, u) < 1.0e-8
     assert errornorm(pexact, p) < 1.0e-8
 
@@ -148,15 +145,16 @@ def test_solve_2d_slab_schur_gmg_mass():
     basehierarchy = MeshHierarchy(basebasemesh, levs - 1)
     meshhierarchy = ExtrudedMeshHierarchy(basehierarchy, H, base_layer=mz, refinement_ratio=2)
     mesh = meshhierarchy[-1]
-    se = StokesExtrude(mesh)
+    se = StokesExtrude(basehierarchy[-1], mz=mz*2**(levs-1), mesh=mesh)
+    se.reset_elevations(Constant(0.0), Constant(H))
     se.mixed_TaylorHood()
-    _setup_physics_2d_slab(mesh, se, L, H)
+    _setup_physics_2d_slab(se, L, H)
     params = SolverParams['newton']
     params.update(SolverParams['schur_gmg_mass'])
     u, p = se.solve(par=params)
     assert se.solver.snes.ksp.getIterationNumber() < 30
     assert se.solver.snes.getIterationNumber() == 2
-    uexact, pexact = _exact_2d_slab(mesh, u.function_space(), p.function_space(), L, H)
+    uexact, pexact = _exact_2d_slab(se.mesh, u.function_space(), p.function_space(), L, H)
     assert errornorm(uexact, u) < 1.0e-8
     assert errornorm(pexact, p) < 1.0e-8
 

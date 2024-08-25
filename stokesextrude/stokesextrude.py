@@ -70,7 +70,8 @@ class StokesExtrude:
         self.bR = fd.Constant(0.0)
         self.tR = fd.Constant(1.0)
         # empty data on mixed space, viscosity model, and boundary conditions
-        self.bcs = []
+        self.dirbcs = []
+        self.pinchcs = []
         self.F_neumann = []
         self.Z = None
         self.up = None
@@ -114,19 +115,16 @@ class StokesExtrude:
         self.up = fd.Function(self.Z)
         return self.V.dim(), self.W.dim()
 
-    def _addcondition(self, obj):
-        self.bcs += [ obj ]  # append to list
-
     def trivializepinchcolumns(self, htol=1.0):
         # warning: call after set_elevations()
         # warning: call after setting mixed space
         self.pinchU = _PinchColumnVelocity(self.Z.sub(0), self.bR, self.tR, htol=htol, dim=self.dim)
-        self._addcondition(self.pinchU)
         self.pinchP = _PinchColumnPressure(self.Z.sub(1), self.bR, self.tR, htol=htol)
-        self._addcondition(self.pinchP)
+        self.pinchcs = [ self.pinchU, self.pinchP ]
+        # FIXME force garbage collection somehow?
 
     def dirichlet(self, ind, val):
-        self._addcondition(fd.DirichletBC(self.Z.sub(0), val, ind))
+        self.dirbcs += [ fd.DirichletBC(self.Z.sub(0), val, ind) ]
 
     def neumann(self, ind, val):
         self.F_neumann += [ (val, ind) ]  # append to list
@@ -148,7 +146,7 @@ class StokesExtrude:
         assert self.Z != None
         assert self.up != None
         assert self.f_body != None
-        assert len(self.bcs) > 0          # requires some Dirichlet boundary
+        assert len(self.dirbcs) > 0          # requires some Dirichlet boundary
         u, p = fd.split(self.up)          # get UFL objects
         v, q = fd.TestFunctions(self.Z)
         if F == None:
@@ -163,7 +161,7 @@ class StokesExtrude:
         self.problem = fd.NonlinearVariationalProblem( \
             self.F,
             self.up,
-            bcs=self.bcs)
+            bcs=self.dirbcs + self.pinchcs)
         if appctx == None:
             appctx = {'stokesextrude_nu': self.nu}
         else:

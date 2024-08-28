@@ -64,7 +64,7 @@ The [Firedrake documentation on extruded meshes](https://www.firedrakeproject.or
 ## pytest
 
 ```bash
-$ pytest tests/
+$ pytest .
 ```
 
 For coverage report:

@@ -158,6 +158,48 @@ def test_solve_2d_slab_schur_gmg_mass():
     assert errornorm(uexact, u) < 1.0e-8
     assert errornorm(pexact, p) < 1.0e-8
 
+def _halfdisc_zeroheight_mumps(zeroheight):
+    mx, mz = 18, 4
+    # 1d base mesh on (0,3)
+    basemesh = IntervalMesh(3 * mx, 3.0)
+    # numpy array: semi-circle on (1,2), but zero on (0,1) union (2,3)
+    xb = basemesh.coordinates.dat.data_ro
+    qb = np.abs(xb - 1.5)
+    sb = np.zeros(np.shape(qb))
+    sb[qb < 0.5] = np.sqrt(0.25 - qb[qb < 0.5]**2)
+    # extrude mesh and set geometry
+    se = StokesExtrude(basemesh, mz=mz, htol=1.0e-6)
+    P1bm = FunctionSpace(basemesh, 'P', 1)
+    s = Function(P1bm)
+    s.dat.data[:] = sb
+    se.reset_elevations(Constant(0.0), s)
+    # solve Stokes
+    se.mixed_TaylorHood()
+    g, rho0, nu0 = 9.8, 1.0, 1.0
+    se.viscosity_constant(nu0)
+    se.body_force(Constant((0.0, - rho0 * g)))
+    se.dirichlet(('bottom',), Constant((0.0,0.0)))
+    params = SolverParams['newton']
+    params.update(SolverParams['mumps'])
+    #params['ksp_converged_reason'] = None
+    #params['snes_converged_reason'] = None
+    _, p = se.solve(par=params, zeroheight=zeroheight)
+    #print(norm(p))
+    assert abs(norm(p) - 1.2188) < 1.0e-3
+    assert se.solver.snes.ksp.getIterationNumber() == 1
+    assert se.solver.snes.ksp.getConvergedReason() == PETSc.KSP.ConvergedReason.CONVERGED_ITS
+    assert se.solver.snes.getIterationNumber() == 1
+    assert se.solver.snes.getConvergedReason() == PETSc.SNES.ConvergedReason.CONVERGED_FNORM_ABS
+    return se
+
+def test_zeroheight_mumps_indices():
+    se = _halfdisc_zeroheight_mumps('indices')
+    #se.savesolution(name='result_indices.pvd')
+
+def test_zeroheight_mumps_bounds():
+    se = _halfdisc_zeroheight_mumps('bounds')
+    #se.savesolution(name='result_bounds.pvd')
+
 if __name__ == "__main__":
     pass
     #test_pc_mass_name()
@@ -169,3 +211,5 @@ if __name__ == "__main__":
     #test_solve_2d_slab_schur_nonscalable_mass()
     #test_solve_2d_slab_schur_hypre_mass()
     #test_solve_2d_slab_schur_gmg_mass()
+    #test_zeroheight_mumps_indices()
+    #test_zeroheight_mumps_bounds()

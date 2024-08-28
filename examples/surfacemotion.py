@@ -10,6 +10,9 @@ from firedrake import *
 from firedrake.output import VTKFile
 from stokesextrude import *
 
+# zeroheight method; choose 'indices' or 'bounds'
+zeroheight = 'indices'
+
 # mesh parameters
 if True:
     dim = 2 # 2D: mx x mz mesh
@@ -65,8 +68,8 @@ else:
     sb[rb < R0] = H0 * (1.0 - abs(rb[rb < R0] / R0)**pp)**rr
 
 # set geometry for the Stokes problem
-P1b = FunctionSpace(basemesh, 'P', 1)
-s = Function(P1b)
+P1bm = FunctionSpace(basemesh, 'P', 1)
+s = Function(P1bm)
 s.dat.data[:] = sb
 se = StokesExtrude(basemesh, mz=mz)
 se.reset_elevations(0.0, s)
@@ -74,7 +77,6 @@ se.reset_elevations(0.0, s)
 # set up Stokes mixed method
 se.mixed_TaylorHood()
 #se.mixed_PkDG()
-se.trivializepinchcolumns()
 
 # boundary conditions
 if dim == 2:
@@ -112,7 +114,7 @@ else:
     printpar(f'solving 3D Stokes on {mx} x {mx} x {mz} extruded mesh ...')
 n_u, n_p = se.V.dim(), se.W.dim()
 printpar(f'  sizes: n_u = {n_u}, n_p = {n_p}')
-u, p = se.solve(par=params, F=_form_stokes(se))
+u, p = se.solve(F=_form_stokes(se), par=params, zeroheight=zeroheight)
 se.savesolution(name='result.pvd')
 printpar(f'u, p solution norms = {norm(u):8.3e}, {norm(p):8.3e}')
 

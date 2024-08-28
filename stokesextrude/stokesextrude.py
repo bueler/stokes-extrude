@@ -176,7 +176,7 @@ class StokesExtrude:
             bcs=self.dirbcs + pinchconditions)
         self.solver = fd.NonlinearVariationalSolver( \
             self.problem,
-            options_prefix='s',
+            options_prefix='stokesextrude',
             solver_parameters=par,
             appctx=appctx)
         # configure bounds if set

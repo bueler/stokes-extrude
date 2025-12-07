@@ -2,8 +2,8 @@
 # Stokes problem, and compute its surface map output Phi(s) = - u|_s . n_s.
 # As much as possible of this code is dimension-independent; the base mesh
 # can be 1D or 2D.  Note that zero-thickness columns are dealt with
-# in the solve() method by trivializing those equations; see
-# IceFreeConditionXX() methods.
+# in the solve() method by either trivializing those equations
+# (zeroheight='indices') or by variational inequality bounds (zeroheight='bounds').
 
 import numpy as np
 from firedrake import *

@@ -39,10 +39,8 @@ SolverParams = {
         "pc_fieldsplit_schur_precondition": "full",  # nonscalable inversion here
         "fieldsplit_0_ksp_type": "preonly",
         "fieldsplit_0_pc_type": "lu",  # LU on u/u block
-        "fieldsplit_0_pc_factor_mat_solver_type": "mumps",
         "fieldsplit_1_ksp_type": "preonly",
         "fieldsplit_1_pc_type": "lu",  # LU on Schur block
-        "fieldsplit_1_pc_factor_mat_solver_type": "mumps",
     },
     "schur_nonscalable_mass":  # Newton steps by GMRES + Schur with mass-matrix preconditioning,
     #   but with LU on A00 block
@@ -54,7 +52,6 @@ SolverParams = {
         "pc_fieldsplit_schur_precondition": "a11",  # the default
         "fieldsplit_0_ksp_type": "preonly",
         "fieldsplit_0_pc_type": "lu",
-        "fieldsplit_0_pc_factor_mat_solver_type": "mumps",
         "fieldsplit_1_ksp_type": "preonly",
         "fieldsplit_1_pc_type": "python",
         "fieldsplit_1_pc_python_type": "stokesextrude.pc_Mass",

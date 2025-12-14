@@ -26,7 +26,7 @@ class _PinchColumnPressure(fd.DirichletBC):
     def nodes(self):
         # return P1 nodes in columns with surface elevation less than 1.0 meter
         h = fd.Function(self.function_space()).interpolate(self.tR - self.bR)
-        return np.where(h.dat.data_ro < self.htol)[0]
+        return np.where(h.dat.data_ro_with_halos < self.htol)[0]
 
 class _PinchColumnVelocity(fd.DirichletBC):
     def __init__(self, V, bR, tR, htol=1.0, dim=2):
@@ -45,10 +45,10 @@ class _PinchColumnVelocity(fd.DirichletBC):
         h = fd.Function(P2scalar).interpolate(self.tR - self.bR)
         if self.dim == 2:
             hh = fd.Function(self.function_space()).interpolate(fd.as_vector([h, h]))
-            return np.where(hh.dat.data_ro < self.htol)[0]
+            return np.where(hh.dat.data_ro_with_halos < self.htol)[0]
         else:
             hhh = fd.Function(self.function_space()).interpolate(fd.as_vector([h, h, h]))
-            return np.where(hhh.dat.data_ro < self.htol)[0]
+            return np.where(hhh.dat.data_ro_with_halos < self.htol)[0]
 
 class StokesExtrude:
 
@@ -86,12 +86,12 @@ class StokesExtrude:
             self.bR = fd.Constant(bottom)
         else:
             self.bR = fd.Function(self.P1R)
-            self.bR.dat.data[:] = bottom.dat.data_ro
+            self.bR.dat.data_with_halos[:] = bottom.dat.data_ro_with_halos
         if np.isscalar(top):
             self.tR = fd.Constant(top)
         else:
             self.tR = fd.Function(self.P1R)
-            self.tR.dat.data[:] = top.dat.data_ro
+            self.tR.dat.data_with_halos[:] = top.dat.data_ro_with_halos
         xo = self.xorig
         newz = self.bR + (self.tR - self.bR) * xo[self.basedim]
         Vcoord = self.mesh.coordinates.function_space()

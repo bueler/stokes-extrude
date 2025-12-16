@@ -30,8 +30,9 @@ SolverParams = {
         #"pc_factor_shift_type": "nonzero",
         "pc_factor_mat_solver_type": "mumps",
     },
-    "schur_nonscalable":  # Newton steps by GMRES + Schur with full formation and
-    #   inversion in solving the Schur complement, and LU on both blocks
+    "schur_nonscalable":  # Newton steps by GMRES + Schur with full+lu formation
+    #   of preconditioner (inversion) in solving the Schur complement, and LU
+    #   on A00 blocks
     {
         "ksp_type": "gmres",
         "pc_type": "fieldsplit",
@@ -42,6 +43,21 @@ SolverParams = {
         "fieldsplit_0_pc_type": "lu",  # LU on u/u block
         "fieldsplit_1_ksp_type": "preonly",
         "fieldsplit_1_pc_type": "lu",  # LU on Schur block
+    },
+    "schur_nonscalable_pinch":  # Newton steps by GMRES + Schur with selfp+jacobi
+    #   formation of preconditioner for Schur complement, and LU on A00 block
+    {
+        "ksp_type": "gmres",
+        "pc_type": "fieldsplit",
+        "pc_fieldsplit_type": "schur",
+        "pc_fieldsplit_schur_fact_type": "lower",
+        "pc_fieldsplit_schur_precondition": "selfp",
+        "fieldsplit_0_ksp_type": "preonly",
+        "fieldsplit_0_pc_type": "lu",
+        "fieldsplit_0_pc_factor_mat_solver_type": "mumps",
+        #"fieldsplit_0_pc_type": "hypre",   # slower than MUMPS, or fails entirely
+        "fieldsplit_1_ksp_type": "preonly",
+        "fieldsplit_1_pc_type": "jacobi",
     },
     "schur_nonscalable_mass":  # Newton steps by GMRES + Schur with mass-matrix preconditioning,
     #   but with LU on A00 block

@@ -38,6 +38,12 @@ class _PinchColumnVelocity(fd.DirichletBC):
         super().__init__(V, zerovec, None)
 
     @fd.utils.cached_property
+    def function_arg(self, g):
+        # override this from the base class so as to avoid check which breaks
+        #   when using Schur solvers
+        self._function_arg = g
+
+    @fd.utils.cached_property
     def nodes(self):
         # return vector P2 nodes in columns with height (thickness) less than htol
         # warning: assumes velocity space is P2

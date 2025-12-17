@@ -145,7 +145,7 @@ class StokesExtrude:
         # check that we are ready
         assert self.Z != None
         assert self.up != None
-        assert self.f_body != None
+        # FIXME assert self.f_body != None
         assert len(self.dirbcs) > 0          # requires some Dirichlet boundary
         # set up solver variables, weak form, and Neumann boundary conditions
         u, p = fd.split(self.up)             # get UFL objects

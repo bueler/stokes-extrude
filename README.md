@@ -1,6 +1,6 @@
 # stokes-extrude
 
-This repository provides a Python package named `stokesextrude` for Stokes problems, including glacier cases, on extruded meshes.  The core technology is all from the [Firedrake](https://www.firedrakeproject.org/) finite element library.
+This repository provides a Python package named `stokesextrude` for Stokes-like fluid problems, including glacier-relevant tools, on extruded meshes.  The core technology is all from the [Firedrake](https://www.firedrakeproject.org/) finite element library.
 
 The implementation is in 3 source files in directory `stokesextrude/`:
 
@@ -21,20 +21,24 @@ A minimal example, which shows the basic functionality, might look like
 ```python
 from firedrake import *
 from stokesextrude import *
-basemesh = UnitIntervalMesh(10)
-se = StokesExtrude(basemesh, mz=4)
+basemesh = UnitIntervalMesh(20)
+se = StokesExtrude(basemesh, mz=10)
 se.mixed_TaylorHood()
 se.viscosity_constant(1.0)
-se.body_force(Constant((1.0, -1.0)))
+u, p = split(se.up)
+v, q = TestFunctions(se.Z)
+f_body = Constant((1.0, -1.0))
+F = ( inner(2.0 * se.nu * se.D(u), se.D(v)) - p * div(v) - q * div(u) \
+      - inner(f_body, v) ) * dx
 se.dirichlet(('bottom',), Constant((0.0,0.0)))
 params = SolverParams['newton']
 params.update(SolverParams['mumps'])
 params['snes_converged_reason'] = None
-u, p = se.solve(par=params)
+u, p = se.solve(F=F, par=params)
 se.savesolution('result.pvd')
 ```
 
-It creates a 10 x 4 2D mesh of quadrilaterals, with P2 x P1 stable elements, over a unit square.  The Stokes problem is linear, with constant viscosity one.  The base has zero Dirichlet (u=0) conditions but otherwise the sides are stress free.  The body force pushes rightward and downward.  One might regard this as a model of a viscous block glued to a 45 degree slope.
+It creates a 20 x 10 2D mesh of quadrilaterals, with P2 x P1 stable elements, over a unit square.  The Stokes problem is linear, with constant viscosity one.  The base has zero Dirichlet (u=0) conditions but otherwise the sides are stress free.  The body force pushes rightward and downward.  One might regard this as a model of a viscous block glued to a 45 degree slope.
 
 ## first run
 

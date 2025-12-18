@@ -11,7 +11,7 @@ def _setup_physics_2d_iceslab(se, L, H, alpha):
     B3 = A3**(-1.0/3.0)     # Pa s(1/3);  ice hardness
     eps = 0.01
     Dtyp = 2.0 / secpera    # 2 a-1
-    se.body_force(Constant((rho * g * sin(alpha), - rho * g * cos(alpha))))
+    f_body = Constant((rho * g * sin(alpha), - rho * g * cos(alpha)))
     se.dirichlet(('bottom',), Constant((0.0,0.0)))
     _, z = SpatialCoordinate(se.mesh)
     C = (2.0 / (nglen + 1.0)) \
@@ -22,14 +22,12 @@ def _setup_physics_2d_iceslab(se, L, H, alpha):
     stressout = as_vector([- rho * g * cos(alpha) * (H - z),
                            rho * g * sin(alpha) * (H - z)])
     se.neumann((2,), stressout)
-    def D(w):
-        return 0.5 * (grad(w) + grad(w).T)
     u, p = split(se.up)
     v, q = TestFunctions(se.Z)
-    Du2 = 0.5 * inner(D(u), D(u)) + (eps * Dtyp)**2.0
+    Du2 = 0.5 * inner(se.D(u), se.D(u)) + (eps * Dtyp)**2.0
     rr = 1.0 / nglen - 1.0
-    F = ( inner(B3 * Du2**(rr / 2.0) * D(u), D(v)) \
-              - p * div(v) - div(u) * q - inner(se.f_body, v) ) * dx(degree=4)
+    F = ( inner(B3 * Du2**(rr / 2.0) * se.D(u), se.D(v)) \
+              - p * div(v) - div(u) * q - inner(f_body, v) ) * dx(degree=4)
     return F
 
 def test_solve_2d_iceslab_mumps():
@@ -46,7 +44,7 @@ def test_solve_2d_iceslab_mumps():
     params['snes_linesearch_type'] = 'bt'
     #params['snes_converged_reason'] = None
     #params['snes_monitor'] = None
-    u, p = se.solve(par=params, F=F)
+    u, p = se.solve(F=F, par=params)
     #se.savesolution('result.pvd')
     assert se.solver.snes.getIterationNumber() < 15
     g, rho = 9.81, 910.0
@@ -69,7 +67,7 @@ def test_solve_2d_iceslab_mumps_dg():
     params['snes_linesearch_type'] = 'bt'
     #params['snes_converged_reason'] = None
     #params['snes_monitor'] = None
-    u, p = se.solve(par=params, F=F)
+    u, p = se.solve(F=F, par=params)
     #se.savesolution('resultdg.pvd')
     assert se.solver.snes.getIterationNumber() < 15
     g, rho = 9.81, 910.0
@@ -79,5 +77,6 @@ def test_solve_2d_iceslab_mumps_dg():
     assert errornorm(pexact, p) / norm(pexact) < 0.01
 
 if __name__ == "__main__":
-    test_solve_2d_iceslab_mumps()
-    test_solve_2d_iceslab_mumps_dg()
+    pass
+    #test_solve_2d_iceslab_mumps()
+    #test_solve_2d_iceslab_mumps_dg()

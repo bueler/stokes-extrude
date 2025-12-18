@@ -8,10 +8,6 @@ from firedrake.output import VTKFile
 from firedrake.petsc import PETSc
 
 printpar = PETSc.Sys.Print
-boundINF  = 1.0e100   # versus PETSc.INFINITY = 4.5e307 which causes overflow inside numpy
-
-def _D(w):
-    return 0.5 * (fd.grad(w) + fd.grad(w).T)
 
 # a "pinch column" is one with zero mesh height (layer thickness)
 
@@ -84,7 +80,6 @@ class StokesExtrude:
         self.Z = None
         self.up = None
         self.nu = None
-        self.f_body = None
 
     def reset_elevations(self, bottom, top):
         # warning: assumes bottom < top
@@ -128,56 +123,36 @@ class StokesExtrude:
     def neumann(self, ind, val):
         self.F_neumann += [ (val, ind) ]  # append to list
 
-    def body_force(self, f):
-        self.f_body = f
+    def D(self, w):
+        return 0.5 * (fd.grad(w) + fd.grad(w).T)
 
     def viscosity_constant(self, nu):
         self.nu = nu
 
-    def _F_linear(self, u, p, v, q):
-        FF = ( fd.inner(2.0 * self.nu * _D(u), _D(v)) \
-               - p * fd.div(v) - q * fd.div(u) \
-               - fd.inner(self.f_body, v) ) * fd.dx  # FIXME degree?
-        return FF
-
-    def solve(self, F=None, par=None, appctx=None, zeroheight=None):
+    def solve(self, F=None, par=None, appctx=None):
         '''Define weak form and solve the Stokes problem.'''
         # check that we are ready
-        assert self.Z != None
-        assert self.up != None
-        # FIXME assert self.f_body != None
+        assert self.Z is not None
+        assert self.up is not None
+        assert F is not None
         assert len(self.dirbcs) > 0          # requires some Dirichlet boundary
         # set up solver variables, weak form, and Neumann boundary conditions
         u, p = fd.split(self.up)             # get UFL objects
         v, q = fd.TestFunctions(self.Z)
-        if F == None:
-            assert self.nu != None
-            self.F = self._F_linear(u, p, v, q)
-        else:
-            self.F = F
         if appctx == None:
             appctx = {'stokesextrude_nu': self.nu}
         else:
             appctx.update({'stokesextrude_nu': self.nu})
         if len(self.F_neumann) > 0:
-            # FIXME only implemented for side facets
+            # non-homogeneous Neumann conditions for side facets
             for ff in self.F_neumann:        # ff = (val, ind)
-                self.F -= fd.inner(ff[0], v) * fd.ds_v(ff[1])
-        # how will we handle zero-height columns?
-        if zeroheight == 'indices':
-            pinchU = _PinchColumnVelocity(self.Z.sub(0), self.bR, self.tR, htol=self.pinchhtol, dim=self.dim)
-            pinchP = _PinchColumnPressure(self.Z.sub(1), self.bR, self.tR, htol=self.pinchhtol)
-            pinchconditions = [pinchU, pinchP]
-        else:
-            pinchconditions = []
-            if zeroheight == 'bounds':
-                # we will need a VI solver on the Stokes problem
-                par.update({"snes_type": "vinewtonrsls",
-                            "snes_vi_zero_tolerance": 1.0e-8,
-                            "snes_linesearch_type": "basic"})
+                F -= fd.inner(ff[0], v) * fd.ds_v(ff[1])
+        pinchU = _PinchColumnVelocity(self.Z.sub(0), self.bR, self.tR, htol=self.pinchhtol, dim=self.dim)
+        pinchP = _PinchColumnPressure(self.Z.sub(1), self.bR, self.tR, htol=self.pinchhtol)
+        pinchconditions = [pinchU, pinchP]
         # problem and solver
         self.problem = fd.NonlinearVariationalProblem( \
-            self.F,
+            F,
             self.up,
             bcs=self.dirbcs + pinchconditions)
         self.solver = fd.NonlinearVariationalSolver( \
@@ -185,30 +160,8 @@ class StokesExtrude:
             options_prefix='stokes',
             solver_parameters=par,
             appctx=appctx)
-        # configure bounds if set
-        mybounds = None
-        if zeroheight == 'bounds':
-            # Build pinching bounds 0 <= u_i <= 0 and 0 <= p <= 0
-            # where hR = tR - bR is zero, i.e. using elevations.
-            # At other points, allow any value; set huge bounds.
-            if self.dim == 2:
-                zeroU = fd.as_vector([0.0, 0.0])
-                ninfU = fd.as_vector([-boundINF, -boundINF])
-                infU  = fd.as_vector([boundINF, boundINF])
-            else:
-                zeroU = fd.as_vector([0.0, 0.0, 0.0])
-                ninfU = fd.as_vector([-boundINF, -boundINF, -boundINF])
-                infU  = fd.as_vector([boundINF, boundINF, boundINF])
-            hR = fd.Function(self.P1R).interpolate(self.tR - self.bR)
-            upl = fd.Function(self.Z)
-            upl.subfunctions[0].interpolate(fd.conditional(hR < self.pinchhtol, zeroU, ninfU))
-            upl.subfunctions[1].interpolate(fd.conditional(hR < self.pinchhtol, 0.0, -boundINF))
-            upu = fd.Function(self.Z)
-            upu.subfunctions[0].interpolate(fd.conditional(hR < self.pinchhtol, zeroU, infU))
-            upu.subfunctions[1].interpolate(fd.conditional(hR < self.pinchhtol, 0.0, boundINF))
-            mybounds = (upl, upu)
-        # actually solve Stokes
-        self.solver.solve(bounds=mybounds)
+        # actually solve
+        self.solver.solve()
         u, p = self.up.subfunctions[0], self.up.subfunctions[1]
         return u, p
 

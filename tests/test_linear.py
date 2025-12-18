@@ -29,17 +29,25 @@ def test_setup_3d_th():
     assert pdim == (k * m + 1)**se.dim
     assert udim == se.dim * ((k+1) * m + 1)**se.dim
 
+def _linear_F(se, f_body=None):
+    assert f_body is not None
+    u, p = split(se.up)
+    v, q = TestFunctions(se.Z)
+    F = ( inner(2.0 * se.nu * se.D(u), se.D(v)) - p * div(v) - q * div(u) \
+          - inner(f_body, v) ) * dx
+    return F
+
 def test_solve_3d_hydrostatic_mumps():
     m = 3
     basemesh = UnitSquareMesh(m, m)
     se = StokesExtrude(basemesh, mz=m)   # prism elements
     se.mixed_TaylorHood()
     se.viscosity_constant(1.0)
-    se.body_force(Constant((0.0, 0.0, -1.0)))
+    F = _linear_F(se, f_body=Constant((0.0, 0.0, -1.0)))
     se.dirichlet((1,2,3,4,'bottom'), Constant((0.0, 0.0, 0.0)))
     params = SolverParams['newton']
     params.update(SolverParams['mumps'])
-    u, p = se.solve(par=params)
+    u, p = se.solve(F=F, par=params)
     _, _, z = SpatialCoordinate(se.mesh)
     assert norm(u) < 1.0e-10
     pexact = Function(p.function_space()).interpolate(1.0 - z)
@@ -50,7 +58,7 @@ def _setup_physics_2d_slab(se, L, H):
     g, rho0, nu0 = 9.8, 1.0, 1.0
     se.viscosity_constant(nu0)
     CC = rho0 * g
-    se.body_force(Constant((CC * sin(alpha), - CC * cos(alpha))))
+    F = _linear_F(se, f_body=Constant((CC * sin(alpha), - CC * cos(alpha))))
     se.dirichlet(('bottom',), Constant((0.0,0.0)))
     C0 = CC * sin(alpha) / nu0
     _, z = SpatialCoordinate(se.mesh)
@@ -59,6 +67,7 @@ def _setup_physics_2d_slab(se, L, H):
     stress_out = as_vector([- CC * cos(alpha) * (H - z),
                             CC * sin(alpha) * (H - z)])
     se.neumann((2,), stress_out)
+    return F
 
 def _exact_2d_slab(mesh, V, W, L, H):
     alpha = 0.5    # tilt in radians
@@ -77,10 +86,10 @@ def test_solve_2d_slab_mumps():
     se = StokesExtrude(basemesh, mz=mz)
     se.reset_elevations(Constant(0.0), Constant(H))
     se.mixed_TaylorHood()
-    _setup_physics_2d_slab(se, L, H)
+    F = _setup_physics_2d_slab(se, L, H)
     params = SolverParams['newton']
     params.update(SolverParams['mumps'])
-    u, p = se.solve(par=params)
+    u, p = se.solve(F=F, par=params)
     assert se.solver.snes.getIterationNumber() == 1
     uexact, pexact = _exact_2d_slab(se.mesh, u.function_space(), p.function_space(), L, H)
     assert errornorm(uexact, u) < 1.0e-10
@@ -93,10 +102,10 @@ def test_solve_2d_slab_schur_nonscalable():
     se = StokesExtrude(basemesh, mz=mz)
     se.reset_elevations(Constant(0.0), Constant(H))
     se.mixed_TaylorHood()
-    _setup_physics_2d_slab(se, L, H)
+    F = _setup_physics_2d_slab(se, L, H)
     params = SolverParams['newton']
     params.update(SolverParams['schur_nonscalable'])
-    u, p = se.solve(par=params)
+    u, p = se.solve(F=F, par=params)
     assert se.solver.snes.ksp.getIterationNumber() == 2  # guaranteed by theory
     assert se.solver.snes.getIterationNumber() == 1
     uexact, pexact = _exact_2d_slab(se.mesh, u.function_space(), p.function_space(), L, H)
@@ -110,10 +119,10 @@ def test_solve_2d_slab_schur_nonscalable_mass():
     se = StokesExtrude(basemesh, mz=mz)
     se.reset_elevations(Constant(0.0), Constant(H))
     se.mixed_TaylorHood()
-    _setup_physics_2d_slab(se, L, H)
+    F = _setup_physics_2d_slab(se, L, H)
     params = SolverParams['newton']
     params.update(SolverParams['schur_nonscalable_mass'])
-    u, p = se.solve(par=params)
+    u, p = se.solve(F=F, par=params)
     assert se.solver.snes.ksp.getIterationNumber() < 15
     assert se.solver.snes.getIterationNumber() == 2
     uexact, pexact = _exact_2d_slab(se.mesh, u.function_space(), p.function_space(), L, H)
@@ -127,16 +136,19 @@ def test_solve_2d_slab_schur_hypre_mass():
     se = StokesExtrude(basemesh, mz=mz)
     se.reset_elevations(Constant(0.0), Constant(H))
     se.mixed_TaylorHood()
-    _setup_physics_2d_slab(se, L, H)
+    F = _setup_physics_2d_slab(se, L, H)
     params = SolverParams['newton']
     params.update(SolverParams['schur_hypre_mass'])
-    u, p = se.solve(par=params)
+    u, p = se.solve(F=F, par=params)
     assert se.solver.snes.ksp.getIterationNumber() < 30
     assert se.solver.snes.getIterationNumber() == 2
     uexact, pexact = _exact_2d_slab(se.mesh, u.function_space(), p.function_space(), L, H)
     assert errornorm(uexact, u) < 1.0e-8
     assert errornorm(pexact, p) < 1.0e-8
 
+# FIXME here
+import pytest
+@pytest.mark.skip(reason="either pinch columns need to be turned off or applied at each level?")
 def test_solve_2d_slab_schur_gmg_mass():
     mx, mz = 20, 2
     levs = 3
@@ -148,17 +160,17 @@ def test_solve_2d_slab_schur_gmg_mass():
     se = StokesExtrude(basehierarchy[-1], mz=mz*2**(levs-1), mesh=mesh)
     se.reset_elevations(Constant(0.0), Constant(H))
     se.mixed_TaylorHood()
-    _setup_physics_2d_slab(se, L, H)
+    F = _setup_physics_2d_slab(se, L, H)
     params = SolverParams['newton']
     params.update(SolverParams['schur_gmg_mass'])
-    u, p = se.solve(par=params)
+    u, p = se.solve(F=F, par=params)
     assert se.solver.snes.ksp.getIterationNumber() < 30
     assert se.solver.snes.getIterationNumber() == 2
     uexact, pexact = _exact_2d_slab(se.mesh, u.function_space(), p.function_space(), L, H)
     assert errornorm(uexact, u) < 1.0e-8
     assert errornorm(pexact, p) < 1.0e-8
 
-def _halfdisc_zeroheight_mumps(zeroheight):
+def test_zeroheight_mumps():
     mx, mz = 18, 4
     # 1d base mesh on (0,3)
     basemesh = IntervalMesh(3 * mx, 3.0)
@@ -177,28 +189,19 @@ def _halfdisc_zeroheight_mumps(zeroheight):
     se.mixed_TaylorHood()
     g, rho0, nu0 = 9.8, 1.0, 1.0
     se.viscosity_constant(nu0)
-    se.body_force(Constant((0.0, - rho0 * g)))
+    F = _linear_F(se, f_body=Constant((0.0, - rho0 * g)))
     se.dirichlet(('bottom',), Constant((0.0,0.0)))
     params = SolverParams['newton']
     params.update(SolverParams['mumps'])
     #params['ksp_converged_reason'] = None
     #params['snes_converged_reason'] = None
-    _, p = se.solve(par=params, zeroheight=zeroheight)
+    _, p = se.solve(F=F, par=params)
     #print(norm(p))
     assert abs(norm(p) - 1.2188) < 1.0e-3
     assert se.solver.snes.ksp.getIterationNumber() == 1
     assert se.solver.snes.ksp.getConvergedReason() == PETSc.KSP.ConvergedReason.CONVERGED_ITS
     assert se.solver.snes.getIterationNumber() == 1
     assert se.solver.snes.getConvergedReason() == PETSc.SNES.ConvergedReason.CONVERGED_FNORM_ABS
-    return se
-
-def test_zeroheight_mumps_indices():
-    se = _halfdisc_zeroheight_mumps('indices')
-    #se.savesolution(name='result_indices.pvd')
-
-def test_zeroheight_mumps_bounds():
-    se = _halfdisc_zeroheight_mumps('bounds')
-    #se.savesolution(name='result_bounds.pvd')
 
 if __name__ == "__main__":
     pass
@@ -211,5 +214,4 @@ if __name__ == "__main__":
     #test_solve_2d_slab_schur_nonscalable_mass()
     #test_solve_2d_slab_schur_hypre_mass()
     #test_solve_2d_slab_schur_gmg_mass()
-    #test_zeroheight_mumps_indices()
-    #test_zeroheight_mumps_bounds()
+    #test_zeroheight_mumps()

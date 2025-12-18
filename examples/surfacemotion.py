@@ -2,19 +2,15 @@
 # Stokes problem, and compute its surface map output Phi(s) = - u|_s . n_s.
 # As much as possible of this code is dimension-independent; the base mesh
 # can be 1D or 2D.  Note that zero-thickness columns are dealt with
-# in the solve() method by either trivializing those equations
-# (zeroheight='indices') or by variational inequality bounds (zeroheight='bounds').
+# in the solve() method by trivializing those equations.
 
 import numpy as np
 from firedrake import *
 from firedrake.output import VTKFile
 from stokesextrude import *
 
-# zeroheight method; choose 'indices' or 'bounds'
-zeroheight = 'indices'
-
 # mesh parameters
-if True:
+if False:
     dim = 2 # 2D: mx x mz mesh
     mx = 101
     mz = 15
@@ -80,22 +76,22 @@ se.mixed_TaylorHood()
 
 # boundary conditions
 if dim == 2:
-    se.body_force(Constant((0.0, - rho * g)))
     se.dirichlet((1,2), Constant((0.0,0.0)))  # wrong if ice advances to margin
     se.dirichlet(('bottom',), Constant((0.0,0.0)))
 else:
-    se.body_force(Constant((0.0, 0.0, - rho * g)))
     se.dirichlet((1,2), Constant((0.0,0.0,0.0)))  # wrong if ice advances to margin
     se.dirichlet(('bottom',), Constant((0.0,0.0,0.0)))
 
 def _form_stokes(se):
-    def D(w):
-        return 0.5 * (grad(w) + grad(w).T)
     u, p = split(se.up)
     v, q = TestFunctions(se.Z)
-    Du2 = 0.5 * inner(D(u), D(u)) + (eps * Dtyp)**2.0
-    F = ( inner(B3 * Du2**(qq / 2.0) * D(u), D(v)) \
-              - p * div(v) - div(u) * q - inner(se.f_body, v) ) * dx(degree=4)
+    Du2 = 0.5 * inner(se.D(u), se.D(u)) + (eps * Dtyp)**2.0
+    if dim == 2:
+        f_body = Constant((0.0, - rho * g))
+    else:
+        f_body = Constant((0.0, 0.0, - rho * g))
+    F = ( inner(B3 * Du2**(qq / 2.0) * se.D(u), se.D(v)) \
+              - p * div(v) - div(u) * q - inner(f_body, v) ) * dx(degree=4)
     return F
 
 # viscosity scale needed in solvers which use pc_Mass
@@ -114,7 +110,7 @@ else:
     printpar(f'solving 3D Stokes on {mx} x {mx} x {mz} extruded mesh ...')
 n_u, n_p = se.V.dim(), se.W.dim()
 printpar(f'  sizes: n_u = {n_u}, n_p = {n_p}')
-u, p = se.solve(F=_form_stokes(se), par=params, zeroheight=zeroheight)
+u, p = se.solve(F=_form_stokes(se), par=params)
 se.savesolution(name='result.pvd')
 printpar(f'u, p solution norms = {norm(u):8.3e}, {norm(p):8.3e}')
 

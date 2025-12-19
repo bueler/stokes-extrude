@@ -10,8 +10,8 @@ from stokesextrude import *
 basemesh = UnitSquareMesh(5, 5)
 mesh = ExtrudedMesh(basemesh, 3)
 x, y = SpatialCoordinate(basemesh)
-P1base = FunctionSpace(basemesh, 'CG', 1)
+P1base = FunctionSpace(basemesh, "CG", 1)
 fbase = Function(P1base).interpolate((x - y) * x + y * y)
 fext = extend_p1_from_basemesh(mesh, fbase)
-fbase2 = trace_scalar_to_p1(basemesh, mesh, fext, surface='bottom')
+fbase2 = trace_scalar_to_p1(basemesh, mesh, fext, surface="bottom")
 assert errornorm(fbase, fbase2) < 1.0e-14

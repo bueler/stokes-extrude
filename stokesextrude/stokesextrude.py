@@ -93,7 +93,7 @@ class StokesExtrude:
         else:
             self.tR = fd.Function(self.P1R)
             self.tR.dat.data_with_halos[:] = top.dat.data_ro_with_halos
-        xo = self.xorig
+        xo = self.xorig  # no copy; just a rename
         newz = self.bR + (self.tR - self.bR) * xo[self.basedim]
         Vcoord = self.mesh.coordinates.function_space()
         if self.basedim == 1:
@@ -102,15 +102,16 @@ class StokesExtrude:
             newcoord = fd.Function(Vcoord).interpolate(fd.as_vector([xo[0], xo[1], newz]))
         self.mesh.coordinates.assign(newcoord)
 
-    def mixed_TaylorHood(self, kp=1):
-        # set up Taylor-Hood mixed method
-        self.V = fd.VectorFunctionSpace(self.mesh, 'Lagrange', kp+1)
-        self.W = fd.FunctionSpace(self.mesh, 'Lagrange', kp)
+    def mixed_TaylorHood(self, k=1):
+        '''Set-up Taylor-Hood mixed elements P_{k+1} x P_k.'''
+        self.V = fd.VectorFunctionSpace(self.mesh, 'Lagrange', k+1)
+        self.W = fd.FunctionSpace(self.mesh, 'Lagrange', k)
         self.Z = self.V * self.W
         self.up = fd.Function(self.Z)
         return self.V.dim(), self.W.dim()
 
     def mixed_PkDG(self, ku=2, kp=1):
+        '''Set-up mixed elements P_ku x DG_kp.  Note DG = DQ on prisms etc.'''
         self.V = fd.VectorFunctionSpace(self.mesh, 'Lagrange', ku)
         self.W = fd.FunctionSpace(self.mesh, 'DQ', kp)
         self.Z = self.V * self.W

@@ -33,6 +33,7 @@ SolverParams = {
     "schur_nonscalable":  # Newton steps by GMRES + Schur with full+lu formation
     #   of preconditioner (inversion) in solving the Schur complement, and LU
     #   on A00 blocks
+    #   theory says GMRES on linear stokes should do 2 iterations with this preconditioner
     {
         "ksp_type": "gmres",
         "pc_type": "fieldsplit",
@@ -44,8 +45,9 @@ SolverParams = {
         "fieldsplit_1_ksp_type": "preonly",
         "fieldsplit_1_pc_type": "lu",  # LU on Schur block
     },
-    "schur_nonscalable_pinch":  # Newton steps by GMRES + Schur with selfp+jacobi
+    "schur_nonscalable_selfp":  # Newton steps by GMRES + Schur with selfp+jacobi
     #   formation of preconditioner for Schur complement, and LU on A00 block
+    #   note: seems to work o.k. with "pinch" type treatment of ice-free columns
     {
         "ksp_type": "gmres",
         "pc_type": "fieldsplit",
@@ -59,8 +61,8 @@ SolverParams = {
         "fieldsplit_1_ksp_type": "preonly",
         "fieldsplit_1_pc_type": "jacobi",
     },
-    "schur_nonscalable_mass":  # Newton steps by GMRES + Schur with mass-matrix preconditioning,
-    #   but with LU on A00 block
+    "schur_nonscalable_mass":  # Newton steps by GMRES + Schur with mass-matrix
+    #   preconditioning applied with ICC, and LU on A00 block
     {
         "ksp_type": "gmres",
         "pc_type": "fieldsplit",

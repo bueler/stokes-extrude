@@ -17,7 +17,7 @@ def test_setup_2d_th():
     m, k = 2, 2
     basemesh = UnitIntervalMesh(m)           # 1d base mesh
     se = StokesExtrude(basemesh, mz=m)       # quad elements
-    udim, pdim = se.mixed_TaylorHood(kp=k)   # Q3 x Q2
+    udim, pdim = se.mixed_TaylorHood(k=k)    # Q3 x Q2
     assert pdim == (k * m + 1)**se.dim
     assert udim == se.dim * ((k+1) * m + 1)**se.dim
 
@@ -25,7 +25,7 @@ def test_setup_3d_th():
     m, k = 2, 1
     basemesh = UnitSquareMesh(m, m)        # 2d base mesh
     se = StokesExtrude(basemesh, mz=m)     # prism elements
-    udim, pdim = se.mixed_TaylorHood(kp=k) # "P2 x P1" but prism
+    udim, pdim = se.mixed_TaylorHood(k=k)  # "P2 x P1" but prism
     assert pdim == (k * m + 1)**se.dim
     assert udim == se.dim * ((k+1) * m + 1)**se.dim
 

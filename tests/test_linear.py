@@ -146,9 +146,6 @@ def test_solve_2d_slab_schur_hypre_mass():
     assert errornorm(uexact, u) < 1.0e-8
     assert errornorm(pexact, p) < 1.0e-8
 
-# FIXME here
-import pytest
-@pytest.mark.skip(reason="either pinch columns need to be turned off or applied at each level?")
 def test_solve_2d_slab_schur_gmg_mass():
     mx, mz = 20, 2
     levs = 3
@@ -163,7 +160,7 @@ def test_solve_2d_slab_schur_gmg_mass():
     F = _setup_physics_2d_slab(se, L, H)
     params = SolverParams['newton']
     params.update(SolverParams['schur_gmg_mass'])
-    u, p = se.solve(F=F, par=params)
+    u, p = se.solve(F=F, par=params, pinch=False)
     assert se.solver.snes.ksp.getIterationNumber() < 30
     assert se.solver.snes.getIterationNumber() == 2
     uexact, pexact = _exact_2d_slab(se.mesh, u.function_space(), p.function_space(), L, H)

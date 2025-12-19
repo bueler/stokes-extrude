@@ -130,7 +130,7 @@ class StokesExtrude:
     def viscosity_constant(self, nu):
         self.nu = nu
 
-    def solve(self, F=None, par=None, appctx=None):
+    def solve(self, F=None, par=None, appctx=None, pinch=True):
         '''Define weak form and solve the Stokes problem.'''
         # check that we are ready
         assert self.Z is not None
@@ -148,16 +148,16 @@ class StokesExtrude:
             # non-homogeneous Neumann conditions for side facets
             for ff in self.F_neumann:        # ff = (val, ind)
                 F -= fd.inner(ff[0], v) * fd.ds_v(ff[1])
-        pinchU = _PinchColumnVelocity(self.Z.sub(0), self.bR, self.tR, htol=self.pinchhtol, dim=self.dim)
-        pinchP = _PinchColumnPressure(self.Z.sub(1), self.bR, self.tR, htol=self.pinchhtol)
-        pinchconditions = [pinchU, pinchP]
+        if pinch:
+            pinchU = _PinchColumnVelocity(self.Z.sub(0), self.bR, self.tR, htol=self.pinchhtol, dim=self.dim)
+            pinchP = _PinchColumnPressure(self.Z.sub(1), self.bR, self.tR, htol=self.pinchhtol)
+            bclist = self.dirbcs + [pinchU, pinchP]
+        else:
+            bclist = self.dirbcs
         # problem and solver
-        self.problem = fd.NonlinearVariationalProblem( \
-            F,
-            self.up,
-            bcs=self.dirbcs + pinchconditions)
+        prob = fd.NonlinearVariationalProblem(F, self.up, bcs=bclist)
         self.solver = fd.NonlinearVariationalSolver( \
-            self.problem,
+            prob,
             options_prefix='stokes',
             solver_parameters=par,
             appctx=appctx)

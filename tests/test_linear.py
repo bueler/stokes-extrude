@@ -160,6 +160,11 @@ def test_solve_2d_slab_schur_gmg_mass():
     F = _setup_physics_2d_slab(se, L, H)
     params = SolverParams['newton']
     params.update(SolverParams['schur_gmg_mass'])
+    #params["snes_converged_reason"] = None
+    #params["ksp_converged_reason"] = None
+    #params["fieldsplit_0_mg_levels_ksp_converged_reason"] = None # to see cycles
+    #n_u, n_p = se.V.dim(), se.W.dim()
+    #printpar(f"  sizes: n_u = {n_u}, n_p = {n_p}")
     u, p = se.solve(F=F, par=params, pinch=False)
     assert se.solver.snes.ksp.getIterationNumber() < 30
     assert se.solver.snes.getIterationNumber() == 2

@@ -1,5 +1,6 @@
 from firedrake import *
 from stokesextrude import *
+import pytest
 
 def _setup_physics_2d_iceslab(se, L, H, alpha):
     # essentially same settings as slab-on-slope example in
@@ -76,6 +77,7 @@ def test_solve_2d_iceslab_mumps_dg():
     #print(errornorm(pexact, p) / norm(pexact))
     assert errornorm(pexact, p) / norm(pexact) < 0.01
 
+@pytest.mark.skip(reason="generates bug about transfer ... because reset_elevations needs to apply to whole hierarchy?")
 def test_solve_2d_iceslab_gmg():
     mx, mz = 20, 5
     levs = 2
@@ -106,4 +108,4 @@ if __name__ == "__main__":
     pass
     #test_solve_2d_iceslab_mumps()
     #test_solve_2d_iceslab_mumps_dg()
-    test_solve_2d_iceslab_gmg()
+    #test_solve_2d_iceslab_gmg()

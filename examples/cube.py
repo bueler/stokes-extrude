@@ -15,6 +15,7 @@ bmx = 4
 bmz = 2
 levs = 3
 
+# the schur_gmg_selfp solver easily beats mumps on higher resolutions
 # serial solve times (seconds) on lemur (41.6GB; 6GB background) with 4x4x2 base mesh:
 #   levs | mumps   memory  | gmg     memory
 #   2    | 0.50    ..      | 2.09    ..

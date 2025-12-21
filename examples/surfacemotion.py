@@ -10,7 +10,7 @@ from firedrake.output import VTKFile
 from stokesextrude import *
 
 # mesh parameters
-if False:
+if True:
     dim = 2  # 2D: mx x mz mesh
     mx = 101
     mz = 15
@@ -48,10 +48,8 @@ basemesh.topology_dm.viewFromOptions("-dm_view")
 
 # the Halfar time-dependent SIA geometry solutions, a dome with zero SMB,
 # are from:
-#   * P. Halfar (1981), On the dynamics of the ice sheets,
-#     J. Geophys. Res. 86 (C11), 11065--11072
-#   * P. Halfar (1983), On the dynamics of the ice sheets 2,
-#     J. Geophys. Res., 88, 6043--6051
+#   * P. Halfar (1981), On the dynamics of the ice sheets, J. Geophys. Res. 86 (C11), 11065--11072
+#   * P. Halfar (1983), On the dynamics of the ice sheets 2, J. Geophys. Res. 88, 6043--6051
 # The solution is evaluated at t = t0.
 pp = 1.0 + 1.0 / nglen
 rr = nglen / (2.0 * nglen + 1.0)
@@ -63,23 +61,20 @@ else:
     rb = np.sqrt(xb * xb + yb * yb)
     sb[rb < R0] = H0 * (1.0 - abs(rb[rb < R0] / R0) ** pp) ** rr
 
-# set geometry for the Stokes problem
+# set geometry and function spaces for the Stokes problem
 P1bm = FunctionSpace(basemesh, "P", 1)
 s = Function(P1bm)
 s.dat.data[:] = sb
 se = StokesExtrude(basemesh, mz=mz)
 se.reset_elevations(0.0, s)
-
-# set up Stokes mixed method
 se.mixed_TaylorHood()
-# se.mixed_PkDG()
 
-# boundary conditions
+# boundary conditions;  wrong if ice advances to margin
 if dim == 2:
-    se.dirichlet((1, 2), Constant((0.0, 0.0)))  # wrong if ice advances to margin
+    se.dirichlet((1, 2), Constant((0.0, 0.0)))
     se.dirichlet(("bottom",), Constant((0.0, 0.0)))
 else:
-    se.dirichlet((1, 2), Constant((0.0, 0.0, 0.0)))  # wrong if ice advances to margin
+    se.dirichlet((1, 2), Constant((0.0, 0.0, 0.0)))
     se.dirichlet(("bottom",), Constant((0.0, 0.0, 0.0)))
 
 

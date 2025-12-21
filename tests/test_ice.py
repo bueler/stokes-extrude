@@ -76,7 +76,34 @@ def test_solve_2d_iceslab_mumps_dg():
     #print(errornorm(pexact, p) / norm(pexact))
     assert errornorm(pexact, p) / norm(pexact) < 0.01
 
+def test_solve_2d_iceslab_gmg():
+    mx, mz = 20, 5
+    levs = 2
+    L, H = 3000.0, 400.0
+    alpha = 0.1   # radians
+    coarsebasemesh = IntervalMesh(mx, L)
+    basehierarchy = MeshHierarchy(coarsebasemesh, levs - 1)
+    meshhierarchy = ExtrudedMeshHierarchy(basehierarchy, 1.0, base_layer=mz, refinement_ratio=2)
+    se = StokesExtrude(basehierarchy[-1], mz=mz*2**(levs-1), mesh=meshhierarchy[-1])
+    se.reset_elevations(Constant(0.0), Constant(H))
+    se.mixed_TaylorHood()
+    F = _setup_physics_2d_iceslab(se, L, H, alpha)
+    params = SolverParams['newton']
+    params.update(SolverParams["schur_gmg_selfp"])
+    params['snes_linesearch_type'] = 'bt'
+    params['snes_converged_reason'] = None
+    params['snes_monitor'] = None
+    u, p = se.solve(F=F, par=params, pinch=False)
+    se.savesolution('result.pvd')
+    #assert se.solver.snes.getIterationNumber() < 15
+    g, rho = 9.81, 910.0
+    _, z = SpatialCoordinate(se.mesh)
+    pexact = Function(p.function_space()).interpolate(rho * g * (H - z))
+    print(errornorm(pexact, p) / norm(pexact))
+    #assert errornorm(pexact, p) / norm(pexact) < 0.01
+
 if __name__ == "__main__":
     pass
     #test_solve_2d_iceslab_mumps()
     #test_solve_2d_iceslab_mumps_dg()
+    test_solve_2d_iceslab_gmg()

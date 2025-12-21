@@ -11,19 +11,30 @@ if len(sys.argv) > 1:
 else:
     solvetype = "mumps"
 
-bmx = 5
+bmx = 4
 bmz = 2
 levs = 3
+
+# serial solve times (seconds) on lemur (41.6GB; 6GB background) with 4x4x2 base mesh:
+#   levs | mumps   memory  | gmg     memory
+#   2    | 0.50    ..      | 2.09    ..
+#   3    | 5.79    ..      | 8.69    ..
+#   4    | 199.0   23GB    | 70.33   9.2GB
+#   5    |                 | 594.1   29GB
+# [meshes: 2->8x8x4, 3->16x16x8, 4->32x32x16, 5->64x64x32]
 
 mx = bmx * 2**(levs - 1)
 mz = bmz * 2**(levs - 1)
 if solvetype == "gmg":
-    coarsebasemesh = UnitSquareMesh(bmx, bmx, diagonal="crossed")
+    coarsebasemesh = UnitSquareMesh(bmx, bmx)
+    #coarsebasemesh = UnitSquareMesh(bmx, bmx, diagonal="crossed")
+    #coarsebasemesh = UnitSquareMesh(bmx, bmx, quadrilateral=True)
     basehierarchy = MeshHierarchy(coarsebasemesh, levs - 1)
     meshhierarchy = ExtrudedMeshHierarchy(basehierarchy, 1.0, base_layer=bmz, refinement_ratio=2)
     se = StokesExtrude(basehierarchy[-1], mz=mz, mesh=meshhierarchy[-1])
 else:
-    basemesh = UnitSquareMesh(mx, mx, diagonal="crossed")
+    basemesh = UnitSquareMesh(mx, mx)
+    #basemesh = UnitSquareMesh(mx, mx, diagonal="crossed")
     se = StokesExtrude(basemesh, mz=mz)
 se.reset_elevations(Constant(0.0), Constant(1.0))
 
@@ -53,7 +64,8 @@ params["snes_monitor"] = None
 params["snes_converged_reason"] = None
 
 if solvetype == "gmg":
-    params.update(SolverParams["schur_gmg_mass"])
+    #params.update(SolverParams["schur_gmg_mass"])
+    params.update(SolverParams["schur_gmg_selfp"])
 else:
     params.update(SolverParams[solvetype])
     #params.update(SolverParams["mumps"])

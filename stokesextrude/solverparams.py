@@ -94,7 +94,7 @@ SolverParams = {
         "fieldsplit_1_aux_pc_type": "bjacobi",
         "fieldsplit_1_aux_sub_pc_type": "icc",
     },
-    "schur_gmg_mass":  # Newton steps by GMRES + Schur with mass-matrix preconditioning,
+    "schur_gmg_mass":  # Newton steps by GMRES + Schur (lower) with mass-matrix preconditioning,
     #   and with geometric multigrid on A00 block
     #   works with mesh built as follows (e.g.):
     #     bbmesh = [IntervalMesh()|RectangleMesh()]
@@ -117,23 +117,24 @@ SolverParams = {
         "fieldsplit_1_aux_pc_type": "bjacobi",
         "fieldsplit_1_aux_sub_pc_type": "icc",
     },
-    "schur_gmg_cgnone_mass":  # tentative state: unpreconditioned CG as smoother ... a few more
-    # iterations than Cheb+SOR above, but just as fast?
+    "schur_gmg_selfp":  # Newton steps by GMRES + Schur (lower) with selfp preconditioning,
+    #   and with geometric multigrid on A00 block
     {
-        "ksp_type": "fgmres",  # because CG+none as smoother is not fixed
+        "ksp_type": "gmres",
         "pc_type": "fieldsplit",
         "pc_fieldsplit_type": "schur",
         "pc_fieldsplit_schur_fact_type": "lower",
-        "pc_fieldsplit_schur_precondition": "a11",  # the default
+        "pc_fieldsplit_schur_precondition": "selfp",
         "fieldsplit_0_ksp_type": "preonly",
         "fieldsplit_0_pc_type": "mg",
-        "fieldsplit_0_mg_levels_ksp_type": "cg",
-        "fieldsplit_0_mg_levels_pc_type": "none",
+        "fieldsplit_0_mg_levels_ksp_type": "richardson",
+        "fieldsplit_0_mg_levels_pc_type": "bjacobi",
+        "fieldsplit_0_mg_levels_sub_pc_type": "ilu",
+        "fieldsplit_0_mg_coarse_ksp_type": "preonly",
+        "fieldsplit_0_mg_coarse_pc_type": "lu",
+        "fieldsplit_0_mg_coarse_pc_factor_mat_solver_type": "mumps",
         "fieldsplit_1_ksp_type": "preonly",
-        "fieldsplit_1_pc_type": "python",
-        "fieldsplit_1_pc_python_type": "stokesextrude.pc_Mass",
-        "fieldsplit_1_aux_pc_type": "bjacobi",
-        "fieldsplit_1_aux_sub_pc_type": "icc",
+        "fieldsplit_1_pc_type": "jacobi",
     },
     "DEV_schur_gmgmf_mass": {  # NOTE: to head toward matrix-free application of GMG on A00 block, need to know that non-assembled (or minimally-assembled) PC works  #'mat_type': 'nest',  ???
         #'mat_type': 'matfree',

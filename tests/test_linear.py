@@ -146,7 +146,7 @@ def test_solve_2d_slab_schur_hypre_mass():
     assert errornorm(uexact, u) < 1.0e-8
     assert errornorm(pexact, p) < 1.0e-8
 
-def test_solve_2d_slab_schur_gmg_mass():
+def test_solve_2d_slab_schur_gmg_selfp():
     mx, mz = 20, 2
     levs = 3
     L, H = 10.0, 1.0
@@ -159,7 +159,7 @@ def test_solve_2d_slab_schur_gmg_mass():
     se.mixed_TaylorHood()
     F = _setup_physics_2d_slab(se, L, H)
     params = SolverParams['newton']
-    params.update(SolverParams['schur_gmg_mass'])
+    params.update(SolverParams['schur_gmg_selfp'])
     #params["snes_converged_reason"] = None
     #params["ksp_converged_reason"] = None
     #params["fieldsplit_0_mg_levels_ksp_converged_reason"] = None # to see cycles
@@ -215,5 +215,5 @@ if __name__ == "__main__":
     #test_solve_2d_slab_schur_nonscalable()
     #test_solve_2d_slab_schur_nonscalable_mass()
     #test_solve_2d_slab_schur_hypre_mass()
-    #test_solve_2d_slab_schur_gmg_mass()
+    #test_solve_2d_slab_schur_gmg_selfp()
     #test_zeroheight_mumps()

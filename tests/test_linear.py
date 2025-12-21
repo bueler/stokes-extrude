@@ -147,14 +147,11 @@ def test_solve_2d_slab_schur_hypre_mass():
     assert errornorm(pexact, p) < 1.0e-8
 
 def test_solve_2d_slab_schur_gmg_selfp():
-    mx, mz = 20, 2
-    levs = 3
+    cmx, cmz = 20, 2  # for coarse base mesh
+    levs = 2
     L, H = 10.0, 1.0
-    basebasemesh = IntervalMesh(mx, L)
-    basehierarchy = MeshHierarchy(basebasemesh, levs - 1)
-    meshhierarchy = ExtrudedMeshHierarchy(basehierarchy, H, base_layer=mz, refinement_ratio=2)
-    mesh = meshhierarchy[-1]
-    se = StokesExtrude(basehierarchy[-1], mz=mz*2**(levs-1), mesh=mesh)
+    coarsebasemesh = IntervalMesh(cmx, L)
+    se = StokesExtrude(coarsebasemesh, mz=cmz, levs=levs)
     se.reset_elevations(Constant(0.0), Constant(H))
     se.mixed_TaylorHood()
     F = _setup_physics_2d_slab(se, L, H)
@@ -165,10 +162,11 @@ def test_solve_2d_slab_schur_gmg_selfp():
     #params["fieldsplit_0_mg_levels_ksp_converged_reason"] = None # to see cycles
     #n_u, n_p = se.V.dim(), se.W.dim()
     #printpar(f"  sizes: n_u = {n_u}, n_p = {n_p}")
+    assert se.V.dim() == 1458 and se.W.dim() == 205
     u, p = se.solve(F=F, par=params, pinch=False)
     assert se.solver.snes.ksp.getIterationNumber() < 30
     assert se.solver.snes.getIterationNumber() == 2
-    uexact, pexact = _exact_2d_slab(se.mesh, u.function_space(), p.function_space(), L, H)
+    uexact, pexact = _exact_2d_slab(se.mesh, se.V, se.W, L, H)
     assert errornorm(uexact, u) < 1.0e-8
     assert errornorm(pexact, p) < 1.0e-8
 

@@ -77,7 +77,8 @@ def test_solve_2d_iceslab_mumps_dg():
     #print(errornorm(pexact, p) / norm(pexact))
     assert errornorm(pexact, p) / norm(pexact) < 0.01
 
-@pytest.mark.skip(reason="generates bug about transfer ... because reset_elevations needs to apply to whole hierarchy?")
+# FIXME
+@pytest.mark.skip(reason="generates bug about transfer ... reset_elevations needs to apply to whole hierarchy")
 def test_solve_2d_iceslab_gmg():
     mx, mz = 20, 5
     levs = 2

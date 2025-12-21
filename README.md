@@ -16,7 +16,7 @@ Install with pip: `pip install -e .`
 
 ## basic example
 
-A minimal example, which shows the basic functionality, might look like
+A minimal example, which shows some basic functionality, might look like
 
 ```python
 from firedrake import *
@@ -30,7 +30,7 @@ v, q = TestFunctions(se.Z)
 f_body = Constant((1.0, -1.0))
 F = ( inner(2.0 * se.nu * se.D(u), se.D(v)) - p * div(v) - q * div(u) \
       - inner(f_body, v) ) * dx
-se.dirichlet(('bottom',), Constant((0.0,0.0)))
+se.dirichlet(('bottom',), Constant((0.0, 0.0)))
 params = SolverParams['newton']
 params.update(SolverParams['mumps'])
 params['snes_converged_reason'] = None
@@ -38,7 +38,7 @@ u, p = se.solve(F=F, par=params)
 se.savesolution('result.pvd')
 ```
 
-It creates a 20 x 10 2D mesh of quadrilaterals, with P2 x P1 stable elements, over a unit square.  The Stokes problem is linear, with constant viscosity one.  The base has zero Dirichlet (u=0) conditions but otherwise the sides are stress free.  The body force pushes rightward and downward.  One might regard this as a model of a viscous block glued to a 45 degree slope.
+It creates a 20 x 10 2D mesh of quadrilaterals, with P2 x P1 stable elements, over a unit square.  The Stokes problem is linear, with constant viscosity one.  The base has zero Dirichlet (u=0) conditions but otherwise the sides are stress free.  The body force pushes rightward and downward.  One might regard this as a model of a linearly-viscous block glued to a 45 degree slope.  The solver is direct.
 
 ## first run
 
@@ -56,16 +56,22 @@ $ paraview result.pvd
 
 In more detail, we use [Firedrake](https://www.firedrakeproject.org) to solve a Stokes problem on an extruded mesh, in 2D or 3D.  The user provides the base mesh, which will be 1D or 2D, respectively.  Elements are products of the base mesh element and an interval.
 
-Here are some capabilities:
-  1. A standard linear weak form, with a user-configurable viscosity constant, is available.  Alternatively, the user can provide the weak form.
-  2. One can set a variety of Dirichlet and Neumann boundary conditions.  The user is responsible for choosing a well-posed problem; e.g. at least some Dirichlet conditions should be set.
-  3. Geometry functionality includes the ability to set the upper and lower surface elevation/location from given fields (scalar `Function`) on the base mesh, or from scalar constants.
-  4. Zero-height columns are allowed.  If the `solve()` method is called with `zeroheight="indices"` then the classes `_PinchColumnPressure` and `_PinchColumnVelocity` are used.  This adds conditions similar to Dirichlet conditions for all degrees of freedom which are in zero-height columns.
-  5. One can use classical Taylor-Hood (P2 x P1), higher-order Taylor-Hood, or P2 x DG0.  (However, only the first-option is well-tested.)
-  6. Solvers can exploit a both a base mesh hierarchy and a vertical mesh hierarchy for geometric multigrid.  Algebraic multigrid can be used over the coarse mesh.
-  7. Tests and examples are provide with linear viscosity, and with power-law viscosity suitable for glaciers.
+The Firedrake documentation on [extruded meshes](https://www.firedrakeproject.org/extruded-meshes.html) is a good place to start if you want to understand how these meshes work.
 
-The [Firedrake documentation on extruded meshes](https://www.firedrakeproject.org/extruded-meshes.html) is a good place to start if you want to understand how these meshes work.
+Here are some capabilities of the `StokesExtrude` class:
+  1. The most important functionality is geometric.  One can set the upper and lower surface elevation/location from given fields (scalar `Function`) on the base mesh, or from scalar constants.
+  1. Tools are provided to go back and forth between fields defined over the base mesh versus trace values at the top and bottom of the extruded mesh.  These can be in the `R` space of the extruded mesh.
+  1. Zero-height columns are allowed.  The classes `_PinchColumnPressure` and `_PinchColumnVelocity` are defined for this purpose.  They adds conditions similar to Dirichlet conditions for all degrees of freedom, e.g. velocities and pressures, which are in zero-height columns.
+  1. At initialization, the class can create a mesh hierarchy (from a base mesh hierarchy) for geometric multigrid.
+  1. One can set a variety of Dirichlet and Neumann boundary conditions.  The user is responsible for choosing a well-posed problem; e.g. at least some Dirichlet conditions should be set.
+  1. One can set classical Taylor-Hood (P2 x P1), higher-order Taylor-Hood, or P2 x DG0.
+  1. Tests and examples are provide with linear and power-law viscosity; the latter is for glaciers.
+
+Note that the user provides the weak form itself.
+
+## known limitations
+
+The combination of zero-height columns and mesh hierarchy is under development.
 
 ## pytest
 

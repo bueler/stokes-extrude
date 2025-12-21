@@ -95,12 +95,7 @@ SolverParams = {
         "fieldsplit_1_aux_sub_pc_type": "icc",
     },
     "schur_gmg_mass":  # Newton steps by GMRES + Schur (lower) with mass-matrix preconditioning,
-    #   and with geometric multigrid on A00 block
-    #   works with mesh built as follows (e.g.):
-    #     bbmesh = [IntervalMesh()|RectangleMesh()]
-    #     bhier = MeshHierarchy(bbmesh, levs - 1)
-    #     mhier = ExtrudedMeshHierarchy(bhier, H, base_layer=bmz, refinement_ratio=2)
-    #     mesh = mhier[-1]
+    #   and with geometric multigrid on A00 block; use with levs > 1 when initializing StokesExtrude
     {
         "ksp_type": "gmres",
         "pc_type": "fieldsplit",
@@ -118,7 +113,7 @@ SolverParams = {
         "fieldsplit_1_aux_sub_pc_type": "icc",
     },
     "schur_gmg_selfp":  # Newton steps by GMRES + Schur (lower) with selfp preconditioning,
-    #   and with geometric multigrid on A00 block
+    #   and with geometric multigrid on A00 block; use with levs > 1 when initializing StokesExtrude
     {
         "ksp_type": "gmres",
         "pc_type": "fieldsplit",

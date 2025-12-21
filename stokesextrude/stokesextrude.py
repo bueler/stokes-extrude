@@ -54,25 +54,33 @@ class _PinchColumnVelocity(fd.DirichletBC):
 
 class StokesExtrude:
 
-    def __init__(self, basemesh, mz=4, mesh=None, htol=1.0):
-        # save basemesh info
-        self.basemesh = basemesh
-        tmp = basemesh.cell_dimension()
-        if np.isscalar(tmp):
-            self.basedim = tmp
+    def __init__(self, basemesh, mz=4, levs=1, htol=1.0):
+        # save initialization arguments
+        self._cbmesh = basemesh  # base (or coarsest base) mesh
+        self._cmz = mz  # number of layers in (coarsest) mesh
+        self.levs = levs
+        self.pinchhtol = htol
+        # extruded mesh dimension
+        bdim = self._cbmesh.cell_dimension()
+        if np.isscalar(bdim):
+            self.dim = bdim + 1
         else:
-            self.basedim = tmp[0]
-        # construct extruded mesh
-        self.dim = self.basedim + 1
-        self.mz = mz
-        if mesh == None:
-            self.mesh = fd.ExtrudedMesh(basemesh, self.mz, layer_height=1.0/self.mz)
+            self.dim = bdim[0] + 1
+        # construct extruded mesh or mesh hierarchy
+        # FIXME copy original coordinates on each level
+        if self.levs == 1:
+            self.mesh = fd.ExtrudedMesh(self._cbmesh, self._cmz, layer_height=1.0/self._cmz)
+            self.bhier = None
+            self.hier = None
         else:
-            self.mesh = mesh
-        self.xorig = self.mesh.coordinates.copy(deepcopy=True) # save
+            assert np.isscalar(self.levs) and self.levs > 1
+            self.bhier = fd.MeshHierarchy(self._cbmesh, self.levs - 1)
+            self.hier = fd.ExtrudedMeshHierarchy(self.bhier, 1.0, base_layer=self._cmz, refinement_ratio=2)
+            self.mesh = self.hier[-1]
+        self.xorig = self.mesh.coordinates.copy(deepcopy=True)
+        # defaults for R space quantities
         self.bR = fd.Constant(0.0)
         self.tR = fd.Constant(1.0)
-        self.pinchhtol = htol
         self.P1R = fd.FunctionSpace(self.mesh, 'P', 1, vfamily='R', vdegree=0)
         # empty data on mixed space, viscosity model, and boundary conditions
         self.dirbcs = []
@@ -82,6 +90,7 @@ class StokesExtrude:
         self.nu = None
 
     def reset_elevations(self, bottom, top):
+        # FIXME do this on all levels if present
         # warning: assumes bottom < top
         if np.isscalar(bottom):
             self.bR = fd.Constant(bottom)
@@ -94,9 +103,9 @@ class StokesExtrude:
             self.tR = fd.Function(self.P1R)
             self.tR.dat.data_with_halos[:] = top.dat.data_ro_with_halos
         xo = self.xorig  # no copy; just a rename
-        newz = self.bR + (self.tR - self.bR) * xo[self.basedim]
+        newz = self.bR + (self.tR - self.bR) * xo[self.dim - 1]
         Vcoord = self.mesh.coordinates.function_space()
-        if self.basedim == 1:
+        if self.dim == 2:
             newcoord = fd.Function(Vcoord).interpolate(fd.as_vector([xo[0], newz]))
         else:
             newcoord = fd.Function(Vcoord).interpolate(fd.as_vector([xo[0], xo[1], newz]))
@@ -136,7 +145,7 @@ class StokesExtrude:
         assert self.Z is not None
         assert self.up is not None
         assert F is not None
-        assert len(self.dirbcs) > 0          # requires some Dirichlet boundary
+        assert len(self.dirbcs) > 0          # require some Dirichlet boundary
         # set up solver variables, weak form, and Neumann boundary conditions
         u, p = fd.split(self.up)             # get UFL objects
         v, q = fd.TestFunctions(self.Z)
@@ -149,6 +158,7 @@ class StokesExtrude:
             for ff in self.F_neumann:        # ff = (val, ind)
                 F -= fd.inner(ff[0], v) * fd.ds_v(ff[1])
         if pinch:
+            # FIXME do this in hierarchy if present?
             pinchU = _PinchColumnVelocity(self.Z.sub(0), self.bR, self.tR, htol=self.pinchhtol, dim=self.dim)
             pinchP = _PinchColumnPressure(self.Z.sub(1), self.bR, self.tR, htol=self.pinchhtol)
             bclist = self.dirbcs + [pinchU, pinchP]

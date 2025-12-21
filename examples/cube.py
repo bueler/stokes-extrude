@@ -27,17 +27,16 @@ levs = 3
 mx = bmx * 2**(levs - 1)
 mz = bmz * 2**(levs - 1)
 if solvetype == "gmg":
+    assert levs > 1
     coarsebasemesh = UnitSquareMesh(bmx, bmx)
     #coarsebasemesh = UnitSquareMesh(bmx, bmx, diagonal="crossed")
     #coarsebasemesh = UnitSquareMesh(bmx, bmx, quadrilateral=True)
-    basehierarchy = MeshHierarchy(coarsebasemesh, levs - 1)
-    meshhierarchy = ExtrudedMeshHierarchy(basehierarchy, 1.0, base_layer=bmz, refinement_ratio=2)
-    se = StokesExtrude(basehierarchy[-1], mz=mz, mesh=meshhierarchy[-1])
+    se = StokesExtrude(coarsebasemesh, mz=bmz, levs=levs)
 else:
     basemesh = UnitSquareMesh(mx, mx)
     #basemesh = UnitSquareMesh(mx, mx, diagonal="crossed")
     se = StokesExtrude(basemesh, mz=mz)
-se.reset_elevations(Constant(0.0), Constant(1.0))
+se.reset_elevations(0.0, 1.0)
 
 se.mixed_TaylorHood()
 u, p = split(se.up)

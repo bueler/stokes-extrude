@@ -37,7 +37,7 @@ def test_solve_2d_iceslab_mumps():
     alpha = 0.1   # radians
     basemesh = IntervalMesh(mx, L)
     se = StokesExtrude(basemesh, mz=mz)
-    se.reset_elevations(Constant(0.0), Constant(H))
+    se.reset_elevations(0.0, H)
     se.mixed_TaylorHood()
     F = _setup_physics_2d_iceslab(se, L, H, alpha)
     params = SolverParams['newton']
@@ -55,12 +55,12 @@ def test_solve_2d_iceslab_mumps():
     assert errornorm(pexact, p) / norm(pexact) < 0.01
 
 def test_solve_2d_iceslab_mumps_dg():
-    mx, mz = 20, 5
+    mx, mz = 20, 6
     L, H = 3000.0, 400.0
     alpha = 0.1   # radians
     basemesh = IntervalMesh(mx, L)
     se = StokesExtrude(basemesh, mz=mz)
-    se.reset_elevations(Constant(0.0), Constant(H))
+    se.reset_elevations(0.0, H)
     se.mixed_PkDG() # only change from test_solve_2d_iceslab_mumps()
     F = _setup_physics_2d_iceslab(se, L, H, alpha)
     params = SolverParams['newton']
@@ -77,33 +77,29 @@ def test_solve_2d_iceslab_mumps_dg():
     #print(errornorm(pexact, p) / norm(pexact))
     assert errornorm(pexact, p) / norm(pexact) < 0.01
 
-# FIXME
-@pytest.mark.skip(reason="generates bug about transfer ... reset_elevations needs to apply to whole hierarchy")
 def test_solve_2d_iceslab_gmg():
-    mx, mz = 20, 5
+    cmx, cmz = 10, 3
     levs = 2
     L, H = 3000.0, 400.0
     alpha = 0.1   # radians
-    coarsebasemesh = IntervalMesh(mx, L)
-    basehierarchy = MeshHierarchy(coarsebasemesh, levs - 1)
-    meshhierarchy = ExtrudedMeshHierarchy(basehierarchy, 1.0, base_layer=mz, refinement_ratio=2)
-    se = StokesExtrude(basehierarchy[-1], mz=mz*2**(levs-1), mesh=meshhierarchy[-1])
-    se.reset_elevations(Constant(0.0), Constant(H))
+    coarsebasemesh = IntervalMesh(cmx, L)
+    se = StokesExtrude(coarsebasemesh, mz=cmz, levs=levs)
+    se.reset_elevations(0.0, H)
     se.mixed_TaylorHood()
     F = _setup_physics_2d_iceslab(se, L, H, alpha)
     params = SolverParams['newton']
     params.update(SolverParams["schur_gmg_selfp"])
     params['snes_linesearch_type'] = 'bt'
-    params['snes_converged_reason'] = None
-    params['snes_monitor'] = None
+    #params['snes_converged_reason'] = None
+    #params['snes_monitor'] = None
     u, p = se.solve(F=F, par=params, pinch=False)
-    se.savesolution('result.pvd')
-    #assert se.solver.snes.getIterationNumber() < 15
+    #se.savesolution('result.pvd')
+    assert se.solver.snes.getIterationNumber() < 15
     g, rho = 9.81, 910.0
     _, z = SpatialCoordinate(se.mesh)
     pexact = Function(p.function_space()).interpolate(rho * g * (H - z))
-    print(errornorm(pexact, p) / norm(pexact))
-    #assert errornorm(pexact, p) / norm(pexact) < 0.01
+    #print(errornorm(pexact, p) / norm(pexact))
+    assert errornorm(pexact, p) / norm(pexact) < 0.01
 
 if __name__ == "__main__":
     pass

@@ -84,7 +84,7 @@ def test_solve_2d_slab_mumps():
     L, H = 10.0, 1.0
     basemesh = IntervalMesh(mx, L)
     se = StokesExtrude(basemesh, mz=mz)
-    se.reset_elevations(Constant(0.0), Constant(H))
+    se.reset_elevations(0.0, H)
     se.mixed_TaylorHood()
     F = _setup_physics_2d_slab(se, L, H)
     params = SolverParams['newton']
@@ -100,7 +100,7 @@ def test_solve_2d_slab_schur_nonscalable():
     L, H = 10.0, 1.0
     basemesh = IntervalMesh(mx, L)
     se = StokesExtrude(basemesh, mz=mz)
-    se.reset_elevations(Constant(0.0), Constant(H))
+    se.reset_elevations(0.0, H)
     se.mixed_TaylorHood()
     F = _setup_physics_2d_slab(se, L, H)
     params = SolverParams['newton']
@@ -117,7 +117,7 @@ def test_solve_2d_slab_schur_nonscalable_mass():
     L, H = 10.0, 1.0
     basemesh = IntervalMesh(mx, L)
     se = StokesExtrude(basemesh, mz=mz)
-    se.reset_elevations(Constant(0.0), Constant(H))
+    se.reset_elevations(0.0, H)
     se.mixed_TaylorHood()
     F = _setup_physics_2d_slab(se, L, H)
     params = SolverParams['newton']
@@ -134,7 +134,7 @@ def test_solve_2d_slab_schur_hypre_mass():
     L, H = 10.0, 1.0
     basemesh = IntervalMesh(mx, L)
     se = StokesExtrude(basemesh, mz=mz)
-    se.reset_elevations(Constant(0.0), Constant(H))
+    se.reset_elevations(0.0, H)
     se.mixed_TaylorHood()
     F = _setup_physics_2d_slab(se, L, H)
     params = SolverParams['newton']
@@ -152,7 +152,7 @@ def test_solve_2d_slab_schur_gmg_selfp():
     L, H = 10.0, 1.0
     coarsebasemesh = IntervalMesh(cmx, L)
     se = StokesExtrude(coarsebasemesh, mz=cmz, levs=levs)
-    se.reset_elevations(Constant(0.0), Constant(H))
+    se.reset_elevations(0.0, H)
     se.mixed_TaylorHood()
     F = _setup_physics_2d_slab(se, L, H)
     params = SolverParams['newton']
@@ -184,7 +184,7 @@ def test_zeroheight_mumps():
     P1bm = FunctionSpace(basemesh, 'P', 1)
     s = Function(P1bm)
     s.dat.data[:] = sb
-    se.reset_elevations(Constant(0.0), s)
+    se.reset_elevations(0.0, s)
     # solve Stokes
     se.mixed_TaylorHood()
     g, rho0, nu0 = 9.8, 1.0, 1.0

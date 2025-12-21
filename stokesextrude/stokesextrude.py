@@ -56,29 +56,28 @@ class StokesExtrude:
 
     def __init__(self, basemesh, mz=4, levs=1, htol=1.0):
         # save initialization arguments
-        self._cbmesh = basemesh  # base (or coarsest base) mesh
-        self._cmz = mz  # number of layers in (coarsest) mesh
+        self._cmz = mz  # number of layers in (coarsest) extruded mesh
         self.levs = levs
         self.pinchhtol = htol
         # extruded mesh dimension
-        bdim = self._cbmesh.cell_dimension()
-        if np.isscalar(bdim):
-            self.dim = bdim + 1
-        else:
-            self.dim = bdim[0] + 1
-        # construct extruded mesh or mesh hierarchy
-        # FIXME copy original coordinates on each level
+        bdim = basemesh.cell_dimension()
+        assert np.isscalar(bdim)
+        self.dim = bdim + 1
+        # construct extruded mesh, or extruded mesh hierarchy
+        #   also: copy original coordinates on each level
         if self.levs == 1:
-            self.mesh = fd.ExtrudedMesh(self._cbmesh, self._cmz, layer_height=1.0/self._cmz)
-            self.bhier = None
-            self.hier = None
+            self.mesh = fd.ExtrudedMesh(basemesh, self._cmz, layer_height=1.0/self._cmz)
+            self.hier = [self.mesh,]
+            self.xorig = [self.mesh.coordinates.copy(deepcopy=True),]
         else:
             assert np.isscalar(self.levs) and self.levs > 1
-            self.bhier = fd.MeshHierarchy(self._cbmesh, self.levs - 1)
-            self.hier = fd.ExtrudedMeshHierarchy(self.bhier, 1.0, base_layer=self._cmz, refinement_ratio=2)
+            # note basemesh is now the coarsest base mesh
+            bhier = fd.MeshHierarchy(basemesh, self.levs - 1)
+            self.hier = fd.ExtrudedMeshHierarchy(bhier, 1.0, base_layer=self._cmz, refinement_ratio=2)
             self.mesh = self.hier[-1]
-        self.xorig = self.mesh.coordinates.copy(deepcopy=True)
+            self.xorig = [mesh.coordinates.copy(deepcopy=True) for mesh in self.hier]
         # defaults for R space quantities
+        # FIXME if not constant they need to be over each mesh level
         self.bR = fd.Constant(0.0)
         self.tR = fd.Constant(1.0)
         self.P1R = fd.FunctionSpace(self.mesh, 'P', 1, vfamily='R', vdegree=0)
@@ -90,26 +89,28 @@ class StokesExtrude:
         self.nu = None
 
     def reset_elevations(self, bottom, top):
-        # FIXME do this on all levels if present
         # warning: assumes bottom < top
         if np.isscalar(bottom):
             self.bR = fd.Constant(bottom)
         else:
+            assert self.levs == 1  # FIXME user needs to supply bottom on each level?
             self.bR = fd.Function(self.P1R)
             self.bR.dat.data_with_halos[:] = bottom.dat.data_ro_with_halos
         if np.isscalar(top):
             self.tR = fd.Constant(top)
         else:
+            assert self.levs == 1  # FIXME user needs to supply top on each level?
             self.tR = fd.Function(self.P1R)
             self.tR.dat.data_with_halos[:] = top.dat.data_ro_with_halos
-        xo = self.xorig  # no copy; just a rename
-        newz = self.bR + (self.tR - self.bR) * xo[self.dim - 1]
-        Vcoord = self.mesh.coordinates.function_space()
-        if self.dim == 2:
-            newcoord = fd.Function(Vcoord).interpolate(fd.as_vector([xo[0], newz]))
-        else:
-            newcoord = fd.Function(Vcoord).interpolate(fd.as_vector([xo[0], xo[1], newz]))
-        self.mesh.coordinates.assign(newcoord)
+        for j in range(self.levs):
+            xo = self.xorig[j]  # no copy; just a rename
+            newz = self.bR + (self.tR - self.bR) * xo[self.dim - 1]
+            Vcoord = self.hier[j].coordinates.function_space()
+            if self.dim == 2:
+                newcoord = fd.Function(Vcoord).interpolate(fd.as_vector([xo[0], newz]))
+            else:
+                newcoord = fd.Function(Vcoord).interpolate(fd.as_vector([xo[0], xo[1], newz]))
+            self.hier[j].coordinates.assign(newcoord)
 
     def mixed_TaylorHood(self, k=1):
         '''Set-up Taylor-Hood mixed elements P_{k+1} x P_k.'''

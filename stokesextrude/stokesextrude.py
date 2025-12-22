@@ -69,6 +69,7 @@ class StokesExtrude:
             self.mesh = fd.ExtrudedMesh(basemesh, self._cmz, layer_height=1.0/self._cmz)
             self.hier = [self.mesh,]
             self.xorig = [self.mesh.coordinates.copy(deepcopy=True),]
+            self.P1R = [fd.FunctionSpace(self.mesh, 'P', 1, vfamily='R', vdegree=0),]
         else:
             assert np.isscalar(self.levs) and self.levs > 1
             # note basemesh is now the coarsest base mesh
@@ -76,12 +77,10 @@ class StokesExtrude:
             self.hier = fd.ExtrudedMeshHierarchy(bhier, 1.0, base_layer=self._cmz, refinement_ratio=2)
             self.mesh = self.hier[-1]
             self.xorig = [mesh.coordinates.copy(deepcopy=True) for mesh in self.hier]
-        # defaults for R space quantities
-        # FIXME if not constant they need to be over each mesh level
-        self.bR = fd.Constant(0.0)
-        self.tR = fd.Constant(1.0)
-        self.P1R = fd.FunctionSpace(self.mesh, 'P', 1, vfamily='R', vdegree=0)
+            self.P1R = [fd.FunctionSpace(mesh, 'P', 1, vfamily='R', vdegree=0) for mesh in self.hier]
         # empty data on mixed space, viscosity model, and boundary conditions
+        self.bR = None
+        self.tR = None
         self.dirbcs = []
         self.F_neumann = []
         self.Z = None
@@ -91,20 +90,34 @@ class StokesExtrude:
     def reset_elevations(self, bottom, top):
         # warning: assumes bottom < top
         if np.isscalar(bottom):
-            self.bR = fd.Constant(bottom)
+            self.bR = [fd.Constant(bottom) for j in range(self.levs)]
+        elif isinstance(bottom, fd.Constant):
+            self.bR = [bottom for j in range(self.levs)]
+        elif isinstance(bottom, fd.Function) and self.levs == 1:
+            self.bR = [bottom,]
+        elif isinstance(bottom, list):
+            assert len(bottom) == self.levs
+            self.bR = [fd.Function(VR) for VR in self.P1R]
+            for j in range(self.levs):
+                self.bR[j].dat.data_with_halos[:] = bottom[j].dat.data_ro_with_halos
         else:
-            assert self.levs == 1  # FIXME user needs to supply bottom on each level?
-            self.bR = fd.Function(self.P1R)
-            self.bR.dat.data_with_halos[:] = bottom.dat.data_ro_with_halos
+            raise NotImplementedError("bottom must be scalar, Constant, or list")
         if np.isscalar(top):
-            self.tR = fd.Constant(top)
+            self.tR = [fd.Constant(top) for j in range(self.levs)]
+        elif isinstance(top, fd.Constant):
+            self.tR = [top for j in range(self.levs)]
+        elif isinstance(top, fd.Function) and self.levs == 1:
+            self.tR = [top,]
+        elif isinstance(top, list):
+            assert len(top) == self.levs
+            self.tR = [fd.Function(VR) for VR in self.P1R]
+            for j in range(self.levs):
+                self.tR[j].dat.data_with_halos[:] = top[j].dat.data_ro_with_halos
         else:
-            assert self.levs == 1  # FIXME user needs to supply top on each level?
-            self.tR = fd.Function(self.P1R)
-            self.tR.dat.data_with_halos[:] = top.dat.data_ro_with_halos
+            raise NotImplementedError("top must be scalar, Constant, or list")
         for j in range(self.levs):
             xo = self.xorig[j]  # no copy; just a rename
-            newz = self.bR + (self.tR - self.bR) * xo[self.dim - 1]
+            newz = self.bR[j] + (self.tR[j] - self.bR[j]) * xo[self.dim - 1]
             Vcoord = self.hier[j].coordinates.function_space()
             if self.dim == 2:
                 newcoord = fd.Function(Vcoord).interpolate(fd.as_vector([xo[0], newz]))
@@ -160,8 +173,8 @@ class StokesExtrude:
                 F -= fd.inner(ff[0], v) * fd.ds_v(ff[1])
         if pinch:
             # FIXME do this in hierarchy if present?
-            pinchU = _PinchColumnVelocity(self.Z.sub(0), self.bR, self.tR, htol=self.pinchhtol, dim=self.dim)
-            pinchP = _PinchColumnPressure(self.Z.sub(1), self.bR, self.tR, htol=self.pinchhtol)
+            pinchU = _PinchColumnVelocity(self.Z.sub(0), self.bR[-1], self.tR[-1], htol=self.pinchhtol, dim=self.dim)
+            pinchP = _PinchColumnPressure(self.Z.sub(1), self.bR[-1], self.tR[-1], htol=self.pinchhtol)
             bclist = self.dirbcs + [pinchU, pinchP]
         else:
             bclist = self.dirbcs

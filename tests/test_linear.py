@@ -41,6 +41,7 @@ def test_solve_3d_hydrostatic_mumps():
     m = 3
     basemesh = UnitSquareMesh(m, m)
     se = StokesExtrude(basemesh, mz=m)   # prism elements
+    se.reset_elevations(0.0, 1.0)
     se.mixed_TaylorHood()
     se.viscosity_constant(1.0)
     F = _linear_F(se, f_body=Constant((0.0, 0.0, -1.0)))

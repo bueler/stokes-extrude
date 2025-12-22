@@ -1,6 +1,6 @@
-'''Class for solving Stokes problems on extruded meshes.  Documented
+"""Class for solving Stokes problems on extruded meshes.  Documented
 by the README.md.  See also the documentation on extruded meshes at
-https://www.firedrakeproject.org/extruded-meshes.html'''
+https://www.firedrakeproject.org/extruded-meshes.html"""
 
 import numpy as np
 import firedrake as fd
@@ -10,6 +10,7 @@ from firedrake.petsc import PETSc
 printpar = PETSc.Sys.Print
 
 # a "pinch column" is one with zero mesh height (layer thickness)
+
 
 class _PinchColumnPressure(fd.DirichletBC):
     def __init__(self, V, bR, tR, htol=1.0):
@@ -24,13 +25,16 @@ class _PinchColumnPressure(fd.DirichletBC):
         h = fd.Function(self.function_space()).interpolate(self.tR - self.bR)
         return np.where(h.dat.data_ro_with_halos < self.htol)[0]
 
+
 class _PinchColumnVelocity(fd.DirichletBC):
     def __init__(self, V, bR, tR, htol=1.0, dim=2):
         self.bR = bR
         self.tR = tR
         self.htol = htol
         self.dim = dim
-        zerovec = fd.as_vector([0.0, 0.0]) if dim == 2 else fd.as_vector([0.0, 0.0, 0.0])
+        zerovec = (
+            fd.as_vector([0.0, 0.0]) if dim == 2 else fd.as_vector([0.0, 0.0, 0.0])
+        )
         super().__init__(V, zerovec, None)
 
     @fd.utils.cached_property
@@ -43,17 +47,19 @@ class _PinchColumnVelocity(fd.DirichletBC):
     def nodes(self):
         # return vector P2 nodes in columns with height (thickness) less than htol
         # warning: assumes velocity space is P2
-        P2scalar = fd.FunctionSpace(self.function_space().mesh(), 'CG', 2)
+        P2scalar = fd.FunctionSpace(self.function_space().mesh(), "CG", 2)
         h = fd.Function(P2scalar).interpolate(self.tR - self.bR)
         if self.dim == 2:
             hh = fd.Function(self.function_space()).interpolate(fd.as_vector([h, h]))
             return np.where(hh.dat.data_ro_with_halos < self.htol)[0]
         else:
-            hhh = fd.Function(self.function_space()).interpolate(fd.as_vector([h, h, h]))
+            hhh = fd.Function(self.function_space()).interpolate(
+                fd.as_vector([h, h, h])
+            )
             return np.where(hhh.dat.data_ro_with_halos < self.htol)[0]
 
-class StokesExtrude:
 
+class StokesExtrude:
     def __init__(self, basemesh, mz=4, levs=1, htol=1.0):
         # save initialization arguments
         self._cmz = mz  # number of layers in (coarsest) extruded mesh
@@ -66,35 +72,59 @@ class StokesExtrude:
         # construct extruded mesh, or extruded mesh hierarchy
         #   also: copy original coordinates on each level
         if self.levs == 1:
-            self.mesh = fd.ExtrudedMesh(basemesh, self._cmz, layer_height=1.0/self._cmz)
-            self.hier = [self.mesh,]
-            self.xorig = [self.mesh.coordinates.copy(deepcopy=True),]
-            self.P1R = [fd.FunctionSpace(self.mesh, 'P', 1, vfamily='R', vdegree=0),]
+            self.mesh = fd.ExtrudedMesh(
+                basemesh, self._cmz, layer_height=1.0 / self._cmz
+            )
+            self.hier = [
+                self.mesh,
+            ]
+            self.xorig = [
+                self.mesh.coordinates.copy(deepcopy=True),
+            ]
+            self.P1R = [
+                fd.FunctionSpace(self.mesh, "P", 1, vfamily="R", vdegree=0),
+            ]
         else:
             assert np.isscalar(self.levs) and self.levs > 1
             # note basemesh is now the coarsest base mesh
             bhier = fd.MeshHierarchy(basemesh, self.levs - 1)
-            self.hier = fd.ExtrudedMeshHierarchy(bhier, 1.0, base_layer=self._cmz, refinement_ratio=2)
+            self.hier = fd.ExtrudedMeshHierarchy(
+                bhier, 1.0, base_layer=self._cmz, refinement_ratio=2
+            )
             self.mesh = self.hier[-1]
             self.xorig = [mesh.coordinates.copy(deepcopy=True) for mesh in self.hier]
-            self.P1R = [fd.FunctionSpace(mesh, 'P', 1, vfamily='R', vdegree=0) for mesh in self.hier]
+            self.P1R = [
+                fd.FunctionSpace(mesh, "P", 1, vfamily="R", vdegree=0)
+                for mesh in self.hier
+            ]
+        # populate self.bR, self.tR with elevations compatible with "original coordinates"
+        #   on each level
+        self.reset_elevations(0.0, 1.0)
         # empty data on mixed space, viscosity model, and boundary conditions
-        self.bR = None
-        self.tR = None
-        self.dirbcs = []
-        self.F_neumann = []
         self.Z = None
         self.up = None
         self.nu = None
+        self.dirbcs = []
+        self.F_neumann = []
+
+    def _validate_elevation_order(self):
+        for j in range(self.levs):
+            delta = fd.Function(self.P1R[j]).interpolate(self.tR[j] - self.bR[j])
+            assert np.min(delta.dat.data) >= 0.0
+        return None
 
     def reset_elevations(self, bottom, top):
         # warning: assumes bottom < top
+        # first put bottom and top into lists of the right form
         if np.isscalar(bottom):
             self.bR = [fd.Constant(bottom) for j in range(self.levs)]
         elif isinstance(bottom, fd.Constant):
             self.bR = [bottom for j in range(self.levs)]
         elif isinstance(bottom, fd.Function) and self.levs == 1:
-            self.bR = [bottom,]
+            self.bR = [
+                fd.Function(self.P1R[0]),
+            ]
+            self.bR[0].dat.data_with_halos[:] = bottom.dat.data_ro_with_halos
         elif isinstance(bottom, list):
             assert len(bottom) == self.levs
             self.bR = [fd.Function(VR) for VR in self.P1R]
@@ -107,7 +137,10 @@ class StokesExtrude:
         elif isinstance(top, fd.Constant):
             self.tR = [top for j in range(self.levs)]
         elif isinstance(top, fd.Function) and self.levs == 1:
-            self.tR = [top,]
+            self.tR = [
+                fd.Function(self.P1R[0]),
+            ]
+            self.tR[0].dat.data_with_halos[:] = top.dat.data_ro_with_halos
         elif isinstance(top, list):
             assert len(top) == self.levs
             self.tR = [fd.Function(VR) for VR in self.P1R]
@@ -115,37 +148,44 @@ class StokesExtrude:
                 self.tR[j].dat.data_with_halos[:] = top[j].dat.data_ro_with_halos
         else:
             raise NotImplementedError("top must be scalar, Constant, or list")
+        # second, re-generate coordinates on each level
         for j in range(self.levs):
-            xo = self.xorig[j]  # no copy; just a rename
-            newz = self.bR[j] + (self.tR[j] - self.bR[j]) * xo[self.dim - 1]
+            xyzo = self.xorig[j]  # no copy; just a rename
+            newz = self.bR[j] + (self.tR[j] - self.bR[j]) * xyzo[self.dim - 1]  # UFL
             Vcoord = self.hier[j].coordinates.function_space()
             if self.dim == 2:
-                newcoord = fd.Function(Vcoord).interpolate(fd.as_vector([xo[0], newz]))
+                newcoord = fd.Function(Vcoord).interpolate(
+                    fd.as_vector([xyzo[0], newz])
+                )
             else:
-                newcoord = fd.Function(Vcoord).interpolate(fd.as_vector([xo[0], xo[1], newz]))
+                newcoord = fd.Function(Vcoord).interpolate(
+                    fd.as_vector([xyzo[0], xyzo[1], newz])
+                )
             self.hier[j].coordinates.assign(newcoord)
+        # third, validate
+        self._validate_elevation_order()
 
     def mixed_TaylorHood(self, k=1):
-        '''Set-up Taylor-Hood mixed elements P_{k+1} x P_k.'''
-        self.V = fd.VectorFunctionSpace(self.mesh, 'Lagrange', k+1)
-        self.W = fd.FunctionSpace(self.mesh, 'Lagrange', k)
+        """Set-up Taylor-Hood mixed elements P_{k+1} x P_k."""
+        self.V = fd.VectorFunctionSpace(self.mesh, "Lagrange", k + 1)
+        self.W = fd.FunctionSpace(self.mesh, "Lagrange", k)
         self.Z = self.V * self.W
         self.up = fd.Function(self.Z)
         return self.V.dim(), self.W.dim()
 
     def mixed_PkDG(self, ku=2, kp=1):
-        '''Set-up mixed elements P_ku x DG_kp.  Note DG = DQ on prisms etc.'''
-        self.V = fd.VectorFunctionSpace(self.mesh, 'Lagrange', ku)
-        self.W = fd.FunctionSpace(self.mesh, 'DQ', kp)
+        """Set-up mixed elements P_ku x DG_kp.  Note DG = DQ on prisms etc."""
+        self.V = fd.VectorFunctionSpace(self.mesh, "Lagrange", ku)
+        self.W = fd.FunctionSpace(self.mesh, "DQ", kp)
         self.Z = self.V * self.W
         self.up = fd.Function(self.Z)
         return self.V.dim(), self.W.dim()
 
     def dirichlet(self, ind, val):
-        self.dirbcs += [ fd.DirichletBC(self.Z.sub(0), val, ind) ]
+        self.dirbcs += [fd.DirichletBC(self.Z.sub(0), val, ind)]
 
     def neumann(self, ind, val):
-        self.F_neumann += [ (val, ind) ]  # append to list
+        self.F_neumann += [(val, ind)]  # append to list
 
     def D(self, w):
         return 0.5 * (fd.grad(w) + fd.grad(w).T)
@@ -154,53 +194,59 @@ class StokesExtrude:
         self.nu = nu
 
     def solve(self, F=None, par=None, appctx=None, pinch=True):
-        '''Define weak form and solve the Stokes problem.'''
+        """Define weak form and solve the Stokes problem."""
         # check that we are ready
         assert self.Z is not None
         assert self.up is not None
         assert F is not None
-        assert len(self.dirbcs) > 0          # require some Dirichlet boundary
+        assert len(self.dirbcs) > 0  # require some Dirichlet boundary
         # set up solver variables, weak form, and Neumann boundary conditions
-        u, p = fd.split(self.up)             # get UFL objects
+        u, p = fd.split(self.up)  # get UFL objects
         v, q = fd.TestFunctions(self.Z)
         if appctx == None:
-            appctx = {'stokesextrude_nu': self.nu}
+            appctx = {"stokesextrude_nu": self.nu}
         else:
-            appctx.update({'stokesextrude_nu': self.nu})
+            appctx.update({"stokesextrude_nu": self.nu})
         if len(self.F_neumann) > 0:
             # non-homogeneous Neumann conditions for side facets
-            for ff in self.F_neumann:        # ff = (val, ind)
+            for ff in self.F_neumann:  # ff = (val, ind)
                 F -= fd.inner(ff[0], v) * fd.ds_v(ff[1])
         if pinch:
             # FIXME do this in hierarchy if present?
-            pinchU = _PinchColumnVelocity(self.Z.sub(0), self.bR[-1], self.tR[-1], htol=self.pinchhtol, dim=self.dim)
-            pinchP = _PinchColumnPressure(self.Z.sub(1), self.bR[-1], self.tR[-1], htol=self.pinchhtol)
+            pinchU = _PinchColumnVelocity(
+                self.Z.sub(0),
+                self.bR[-1],
+                self.tR[-1],
+                htol=self.pinchhtol,
+                dim=self.dim,
+            )
+            pinchP = _PinchColumnPressure(
+                self.Z.sub(1), self.bR[-1], self.tR[-1], htol=self.pinchhtol
+            )
             bclist = self.dirbcs + [pinchU, pinchP]
         else:
             bclist = self.dirbcs
         # problem and solver
         prob = fd.NonlinearVariationalProblem(F, self.up, bcs=bclist)
-        self.solver = fd.NonlinearVariationalSolver( \
-            prob,
-            options_prefix='stokes',
-            solver_parameters=par,
-            appctx=appctx)
+        self.solver = fd.NonlinearVariationalSolver(
+            prob, options_prefix="stokes", solver_parameters=par, appctx=appctx
+        )
         # actually solve
         self.solver.solve()
         u, p = self.up.subfunctions[0], self.up.subfunctions[1]
         return u, p
 
     def savesolution(self, name=None):
-        ''' Save u, p solution into .pvd file.'''
+        """Save u, p solution into .pvd file."""
         u, p = self.up.subfunctions[0], self.up.subfunctions[1]
-        u.rename('velocity (m s-1)')
-        p.rename('pressure (Pa)')
+        u.rename("velocity (m s-1)")
+        p.rename("pressure (Pa)")
         if self.mesh.comm.size > 1:
-            printpar('saving u,p,rank to %s' % name)
-            rank = fd.Function(fd.FunctionSpace(self.mesh,'DG',0))
+            printpar("saving u,p,rank to %s" % name)
+            rank = fd.Function(fd.FunctionSpace(self.mesh, "DG", 0))
             rank.dat.data[:] = self.mesh.comm.rank
-            rank.rename('rank')
-            VTKFile(name).write(u,p,rank)
+            rank.rename("rank")
+            VTKFile(name).write(u, p, rank)
         else:
-            print('saving u,p to %s' % name)
-            VTKFile(name).write(u,p)
+            print("saving u,p to %s" % name)
+            VTKFile(name).write(u, p)

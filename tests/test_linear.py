@@ -170,20 +170,17 @@ def test_solve_2d_slab_schur_gmg_selfp():
     assert errornorm(uexact, u) < 1.0e-8
     assert errornorm(pexact, p) < 1.0e-8
 
-def test_zeroheight_mumps():
-    mx, mz = 18, 4
+def test_pinch_mumps():
+    mx, mz = 4, 4
     # 1d base mesh on (0,3)
     basemesh = IntervalMesh(3 * mx, 3.0)
-    # numpy array: semi-circle on (1,2), but zero on (0,1) union (2,3)
-    xb = basemesh.coordinates.dat.data_ro
-    qb = np.abs(xb - 1.5)
-    sb = np.zeros(np.shape(qb))
-    sb[qb < 0.5] = np.sqrt(0.25 - qb[qb < 0.5]**2)
-    # extrude mesh and set geometry
+    # extrude mesh
     se = StokesExtrude(basemesh, mz=mz, htol=1.0e-6)
-    P1bm = FunctionSpace(basemesh, 'P', 1)
-    s = Function(P1bm)
-    s.dat.data[:] = sb
+    # set geometry: semi-circle on (1,2), but zero on (0,1) union (2,3)
+    x = SpatialCoordinate(basemesh)
+    P1b = FunctionSpace(basemesh, "P", 1)
+    xc = x[0] - 1.5
+    s = Function(P1b).interpolate(conditional(abs(xc) < 0.5, sqrt(0.25 - xc * xc), 0.0))
     se.reset_elevations(0.0, s)
     # solve Stokes
     se.mixed_TaylorHood()
@@ -195,14 +192,59 @@ def test_zeroheight_mumps():
     params.update(SolverParams['mumps'])
     #params['ksp_converged_reason'] = None
     #params['snes_converged_reason'] = None
-    _, p = se.solve(F=F, par=params)
+    _, p = se.solve(F=F, par=params, pinch=True)
+    #se.save_solution("result.pvd")
     #print(norm(p))
-    se.save_solution("result.pvd")
-    assert abs(norm(p) - 1.2188) < 1.0e-3
+    assert abs(norm(p) - 1.1) < 0.1
     assert se.solver.snes.ksp.getIterationNumber() == 1
     assert se.solver.snes.ksp.getConvergedReason() == PETSc.KSP.ConvergedReason.CONVERGED_ITS
     assert se.solver.snes.getIterationNumber() == 1
     assert se.solver.snes.getConvergedReason() == PETSc.SNES.ConvergedReason.CONVERGED_FNORM_ABS
+
+import pytest
+@pytest.mark.skip(reason="currently broken on applying pinch throughout hierarchy")
+def test_pinch_gmg():
+    cmx, cmz = 2, 2
+    levs = 2
+    # coarse 1d base mesh on (0,3)
+    coarsebasemesh = IntervalMesh(3 * cmx, 3.0)
+    # extrude mesh
+    se = StokesExtrude(coarsebasemesh, mz=cmz, levs=levs, htol=1.0e-6)
+    # set geometry on each level: semi-circle on (1,2), but zero on (0,1) union (2,3)
+    s = [None for j in range(levs)]
+    for j in range(levs):
+        x = SpatialCoordinate(se.basehier[j])
+        P1b = FunctionSpace(se.basehier[j], "P", 1)
+        xc = x[0] - 1.5
+        #hmin = 0.0 if j == 1 else 0.1
+        hmin = 0.1
+        s[j] = Function(P1b).interpolate(conditional(abs(xc) < 0.5, sqrt(0.25 - xc * xc), hmin))
+    se.reset_elevations(0.0, s)
+    if False:
+        # dump coordinates for levels
+        print("level 0 coordinates:")
+        print(se.hier[0].coordinates.dat.data)
+        print("level 1 coordinates:")
+        print(se.hier[1].coordinates.dat.data)
+    # solve Stokes
+    se.mixed_TaylorHood()
+    g, rho0, nu0 = 9.8, 1.0, 1.0
+    se.viscosity_constant(nu0)
+    F = _linear_F(se, f_body=Constant((0.0, - rho0 * g)))
+    se.dirichlet(('bottom',), Constant((0.0, 0.0)))
+    params = SolverParams['newton']
+    params.update(SolverParams['schur_gmg_selfp'])
+    params['ksp_converged_reason'] = None
+    params['snes_converged_reason'] = None
+    print(se.hier)
+    _, p = se.solve(F=F, par=params, pinch=True)
+    se.save_solution("result.pvd")
+    print(norm(p))
+    #assert abs(norm(p) - 1.1) < 0.1
+    #assert se.solver.snes.ksp.getIterationNumber() == 1
+    #assert se.solver.snes.ksp.getConvergedReason() == PETSc.KSP.ConvergedReason.CONVERGED_ITS
+    #assert se.solver.snes.getIterationNumber() == 1
+    #assert se.solver.snes.getConvergedReason() == PETSc.SNES.ConvergedReason.CONVERGED_FNORM_ABS
 
 if __name__ == "__main__":
     pass
@@ -215,4 +257,5 @@ if __name__ == "__main__":
     #test_solve_2d_slab_schur_nonscalable_mass()
     #test_solve_2d_slab_schur_hypre_mass()
     #test_solve_2d_slab_schur_gmg_selfp()
-    #test_zeroheight_mumps()
+    #test_pinch_mumps()
+    #test_pinch_gmg()

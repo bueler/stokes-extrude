@@ -85,4 +85,4 @@ except firedrake.ConvergenceError:
 end_time = time.perf_counter()
 printpar(f"solve time = {end_time - start_time:.2f} seconds")
 
-se.savesolution("result.pvd")
+se.save_solution("result.pvd")

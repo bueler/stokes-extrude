@@ -46,7 +46,7 @@ def test_solve_2d_iceslab_mumps():
     #params['snes_converged_reason'] = None
     #params['snes_monitor'] = None
     u, p = se.solve(F=F, par=params)
-    #se.savesolution('result.pvd')
+    #se.save_solution('result.pvd')
     assert se.solver.snes.getIterationNumber() < 15
     g, rho = 9.81, 910.0
     _, z = SpatialCoordinate(se.mesh)
@@ -69,7 +69,7 @@ def test_solve_2d_iceslab_mumps_dg():
     #params['snes_converged_reason'] = None
     #params['snes_monitor'] = None
     u, p = se.solve(F=F, par=params)
-    #se.savesolution('resultdg.pvd')
+    #se.save_solution('resultdg.pvd')
     assert se.solver.snes.getIterationNumber() < 15
     g, rho = 9.81, 910.0
     _, z = SpatialCoordinate(se.mesh)
@@ -93,7 +93,7 @@ def test_solve_2d_iceslab_gmg():
     #params['snes_converged_reason'] = None
     #params['snes_monitor'] = None
     u, p = se.solve(F=F, par=params, pinch=False)
-    #se.savesolution('result.pvd')
+    #se.save_solution('result.pvd')
     assert se.solver.snes.getIterationNumber() < 15
     g, rho = 9.81, 910.0
     _, z = SpatialCoordinate(se.mesh)

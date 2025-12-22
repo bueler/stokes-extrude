@@ -35,7 +35,7 @@ params = SolverParams['newton']
 params.update(SolverParams['mumps'])
 params['snes_converged_reason'] = None
 u, p = se.solve(F=F, par=params)
-se.savesolution('result.pvd')
+se.save_solution('result.pvd')
 ```
 
 It creates a 20 x 10 2D mesh of quadrilaterals, with P2 x P1 stable elements, over a unit square.  The Stokes problem is linear, with constant viscosity one.  The base has zero Dirichlet (u=0) conditions but otherwise the sides are stress free.  The body force pushes rightward and downward.  One might regard this as a model of a linearly-viscous block glued to a 45 degree slope.  The solver is direct.

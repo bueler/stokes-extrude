@@ -197,6 +197,7 @@ def test_zeroheight_mumps():
     #params['snes_converged_reason'] = None
     _, p = se.solve(F=F, par=params)
     #print(norm(p))
+    se.save_solution("result.pvd")
     assert abs(norm(p) - 1.2188) < 1.0e-3
     assert se.solver.snes.ksp.getIterationNumber() == 1
     assert se.solver.snes.ksp.getConvergedReason() == PETSc.KSP.ConvergedReason.CONVERGED_ITS

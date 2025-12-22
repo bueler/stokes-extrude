@@ -236,7 +236,7 @@ class StokesExtrude:
         u, p = self.up.subfunctions[0], self.up.subfunctions[1]
         return u, p
 
-    def savesolution(self, name=None):
+    def save_solution(self, name=None):
         """Save u, p solution into .pvd file."""
         u, p = self.up.subfunctions[0], self.up.subfunctions[1]
         u.rename("velocity (m s-1)")

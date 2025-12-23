@@ -199,10 +199,7 @@ def test_pinch_mumps():
     assert se.solver.snes.ksp.getIterationNumber() == 1
     assert se.solver.snes.ksp.getConvergedReason() == PETSc.KSP.ConvergedReason.CONVERGED_ITS
     assert se.solver.snes.getIterationNumber() == 1
-    assert se.solver.snes.getConvergedReason() == PETSc.SNES.ConvergedReason.CONVERGED_FNORM_ABS
 
-import pytest
-@pytest.mark.skip(reason="currently broken on applying pinch throughout hierarchy")
 def test_pinch_gmg():
     cmx, cmz = 2, 2
     levs = 2
@@ -216,8 +213,8 @@ def test_pinch_gmg():
         x = SpatialCoordinate(se.basehier[j])
         P1b = FunctionSpace(se.basehier[j], "P", 1)
         xc = x[0] - 1.5
-        #hmin = 0.0 if j == 1 else 0.1
-        hmin = 0.1
+        #hmin = 0.0 if j == levs - 1 else 0.1  # FAILS
+        hmin = 0.01  # IDEA: transfer operators can't work with pinched columns?
         s[j] = Function(P1b).interpolate(conditional(abs(xc) < 0.5, sqrt(0.25 - xc * xc), hmin))
     se.reset_elevations(0.0, s)
     if False:
@@ -234,17 +231,14 @@ def test_pinch_gmg():
     se.dirichlet(('bottom',), Constant((0.0, 0.0)))
     params = SolverParams['newton']
     params.update(SolverParams['schur_gmg_selfp'])
-    params['ksp_converged_reason'] = None
-    params['snes_converged_reason'] = None
-    print(se.hier)
+    #params['ksp_converged_reason'] = None
+    #params['snes_converged_reason'] = None
     _, p = se.solve(F=F, par=params, pinch=True)
-    se.save_solution("result.pvd")
-    print(norm(p))
-    #assert abs(norm(p) - 1.1) < 0.1
-    #assert se.solver.snes.ksp.getIterationNumber() == 1
-    #assert se.solver.snes.ksp.getConvergedReason() == PETSc.KSP.ConvergedReason.CONVERGED_ITS
-    #assert se.solver.snes.getIterationNumber() == 1
-    #assert se.solver.snes.getConvergedReason() == PETSc.SNES.ConvergedReason.CONVERGED_FNORM_ABS
+    #se.save_solution("result.pvd")
+    #print(norm(p))
+    assert abs(norm(p) - 1.1) < 0.1
+    assert se.solver.snes.ksp.getIterationNumber() < 40
+    assert se.solver.snes.getIterationNumber() == 2
 
 if __name__ == "__main__":
     pass

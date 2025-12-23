@@ -6,26 +6,17 @@ import numpy as np
 import firedrake as fd
 from firedrake.output import VTKFile
 from firedrake.petsc import PETSc
+from firedrake.dmhooks import pop_appctx, get_appctx, push_appctx
 
 printpar = PETSc.Sys.Print
 
-# a "pinch column" is one with zero mesh height (layer thickness)
-
 
 class _PinchColumn(fd.DirichletBC):
-    def __init__(self, V, g, sub_domain):
-        self.ready = False
-        super().__init__(V, g, sub_domain)
+    """A 'pinch column' is one with zero mesh height (layer thickness)."""
 
-    def set_pinch_data(self, hier, bR, tR, htol=1.0):
-        assert isinstance(bR, list)
-        assert isinstance(tR, list)
-        self.hier = hier
-        self.levs = len(self.hier)
-        self.bR = bR
-        self.tR = tR
+    def __init__(self, V, g, sub_domain, htol=1.0):
         self.htol = htol
-        self.ready = True
+        super().__init__(V, g, sub_domain)
 
     @fd.utils.cached_property
     def function_arg(self, g):
@@ -35,47 +26,60 @@ class _PinchColumn(fd.DirichletBC):
 
 
 class _PinchColumnPressure(_PinchColumn):
-    def __init__(self, V, g, sub_domain):
-        super().__init__(V, fd.Constant(0.0), None)
+
+    def __init__(self, V, g, sub_domain, htol=1.0):
+        super().__init__(V, fd.Constant(0.0), None, htol=htol)
 
     @fd.utils.cached_property
     def nodes(self):
-        assert self.ready
+        # where are we applying pinch?
+        V = self.function_space()
+        mesh = V.mesh()
+        # get multilevel application ctx from coordinates DM
+        actx = get_appctx(mesh.coordinates.function_space().dm)
+        assert actx is not None, f"got None for appctx from {mesh} coordinates DM"
         # find the right mesh in the hierarchy
-        for j in range(self.levs):
-            if self.function_space().mesh() == self.hier[j]:
+        for j in range(actx["levs"]):
+            if mesh == actx["hier"][j]:
                 break
+        # DEBUG: print(f"  [_PinchColumnPressure appctx is {actx} at level j={j}]")
         # return P1 nodes in columns with surface elevation less than 1.0 meter
-        h = fd.Function(self.function_space()).interpolate(self.tR[j] - self.bR[j])
+        h = fd.Function(V).interpolate(actx["tR"][j] - actx["bR"][j])
         return np.where(h.dat.data_ro_with_halos < self.htol)[0]
 
 
 class _PinchColumnVelocity(_PinchColumn):
 
-    def __init__(self, V, g, sub_domain, dim=2):
+    def __init__(self, V, g, sub_domain, dim=2, htol=1.0):
         assert dim in [2, 3]
         self.dim = dim
         zerovec = (
             fd.as_vector([0.0, 0.0]) if dim == 2 else fd.as_vector([0.0, 0.0, 0.0])
         )
-        super().__init__(V, zerovec, None)
+        super().__init__(V, zerovec, None, htol=htol)
 
     @fd.utils.cached_property
     def nodes(self):
-        assert self.ready
+        # where are we applying pinch?
+        V = self.function_space()
+        mesh = V.mesh()
+        # get multilevel application ctx from coordinates DM
+        actx = get_appctx(mesh.coordinates.function_space().dm)
+        assert actx is not None, f"got None for appctx from {mesh} coordinates DM"
         # find the right mesh in the hierarchy
-        for j in range(self.levs):
-            if self.function_space().mesh() == self.hier[j]:
+        for j in range(actx["levs"]):
+            if mesh == actx["hier"][j]:
                 break
+        # DEBUG: print(f"  [_PinchColumnVelocity appctx is {actx} at level j={j}]")
         # return vector P2 nodes in columns with height (thickness) less than htol
         # warning: assumes velocity space is P2
-        P2scalar = fd.FunctionSpace(self.function_space().mesh(), "CG", 2)
-        h = fd.Function(P2scalar).interpolate(self.tR[j] - self.bR[j])
+        P2scalar = fd.FunctionSpace(V.mesh(), "CG", 2)
+        h = fd.Function(P2scalar).interpolate(actx["tR"][j] - actx["bR"][j])
         if self.dim == 2:
-            hh = fd.Function(self.function_space()).interpolate(fd.as_vector([h, h]))
+            hh = fd.Function(V).interpolate(fd.as_vector([h, h]))
             return np.where(hh.dat.data_ro_with_halos < self.htol)[0]
         else:
-            hhh = fd.Function(self.function_space()).interpolate(
+            hhh = fd.Function(V).interpolate(
                 fd.as_vector([h, h, h])
             )
             return np.where(hhh.dat.data_ro_with_halos < self.htol)[0]
@@ -104,29 +108,22 @@ class StokesExtrude:
             self.hier = [
                 self.mesh,
             ]
-            self.xorig = [
-                self.mesh.coordinates.copy(deepcopy=True),
-            ]
-            self.P1R = [
-                fd.FunctionSpace(self.mesh, "P", 1, vfamily="R", vdegree=0),
-            ]
         else:
             assert np.isscalar(self.levs) and self.levs > 1
             # note basemesh is now the coarsest base mesh
-            # generally StokesExtrude ignors self.basehier in methods, but
-            #   it is useful to users needing basemesh coordinates
+            # [generally StokesExtrude methods ignor self.basehier in methods, but
+            #   it is useful to users needing basemesh coordinates]
             self.basehier = fd.MeshHierarchy(basemesh, self.levs - 1)
             self.hier = fd.ExtrudedMeshHierarchy(
                 self.basehier, 1.0, base_layer=self._cmz, refinement_ratio=2
             )
             self.mesh = self.hier[-1]
-            self.xorig = [mesh.coordinates.copy(deepcopy=True) for mesh in self.hier]
-            self.P1R = [
-                fd.FunctionSpace(mesh, "P", 1, vfamily="R", vdegree=0)
-                for mesh in self.hier
-            ]
+        # copy "original" coordinates onto each level
+        self.xorig = [m.coordinates.copy(deepcopy=True) for m in self.hier]
+        # generate "R" function spaces on each level
+        self.P1R = [fd.FunctionSpace(m, "P", 1, vfamily="R", vdegree=0) for m in self.hier]
         # populate self.bR, self.tR with elevations compatible with "original coordinates"
-        #   on each level
+        #   on each level, and attach application contexts to mesh level coordinate DMs
         self.reset_elevations(0.0, 1.0)
         # empty data on mixed space, viscosity model, and boundary conditions
         self.Z = None
@@ -176,6 +173,7 @@ class StokesExtrude:
                 self.tR[j].dat.data_with_halos[:] = top[j].dat.data_ro_with_halos
         else:
             raise NotImplementedError("top must be scalar, Constant, or list")
+        self._validate_elevation_order()
         # second, re-generate coordinates on each level
         for j in range(self.levs):
             xyzo = self.xorig[j]  # no copy; just a rename
@@ -190,8 +188,13 @@ class StokesExtrude:
                     fd.as_vector([xyzo[0], xyzo[1], newz])
                 )
             self.hier[j].coordinates.assign(newcoord)
-        # third, validate
-        self._validate_elevation_order()
+        # third, push *multilevel* application context onto the DM attached to the
+        #   coordinate function space on each level
+        actx = {"levs": self.levs, "hier": self.hier, "bR": self.bR, "tR": self.tR}
+        for m in self.hier:
+            dm = m.coordinates.function_space().dm
+            _ = pop_appctx(dm)
+            push_appctx(dm, actx)
 
     def mixed_TaylorHood(self, k=1):
         """Set-up Taylor-Hood mixed elements P_{k+1} x P_k."""
@@ -221,7 +224,7 @@ class StokesExtrude:
     def viscosity_constant(self, nu):
         self.nu = nu
 
-    def solve(self, F=None, par=None, appctx=None, pinch=True):
+    def solve(self, F=None, par=None, appctx=None, pinch=False):
         """Define weak form and solve the Stokes problem."""
         # check that we are ready
         assert self.Z is not None
@@ -240,11 +243,8 @@ class StokesExtrude:
             for ff in self.F_neumann:  # ff = (val, ind)
                 F -= fd.inner(ff[0], v) * fd.ds_v(ff[1])
         if pinch:
-            # FIXME this is still not functional on a hierarchy
-            pinchU = _PinchColumnVelocity(self.Z.sub(0), None, None, dim=self.dim)
-            pinchU.set_pinch_data(self.hier, self.bR, self.tR, htol=self.pinchhtol)
-            pinchP = _PinchColumnPressure(self.Z.sub(1), None, None)
-            pinchP.set_pinch_data(self.hier, self.bR, self.tR, htol=self.pinchhtol)
+            pinchU = _PinchColumnVelocity(self.Z.sub(0), None, None, dim=self.dim, htol=self.pinchhtol)
+            pinchP = _PinchColumnPressure(self.Z.sub(1), None, None, htol=self.pinchhtol)
             bclist = self.dirbcs + [pinchU, pinchP]
         else:
             bclist = self.dirbcs

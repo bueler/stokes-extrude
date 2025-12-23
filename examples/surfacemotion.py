@@ -110,7 +110,7 @@ else:
     printpar(f"solving 3D Stokes on {mx} x {mx} x {mz} extruded mesh ...")
 n_u, n_p = se.V.dim(), se.W.dim()
 printpar(f"  sizes: n_u = {n_u}, n_p = {n_p}")
-u, p = se.solve(F=_form_stokes(se), par=params)
+u, p = se.solve(F=_form_stokes(se), par=params, pinch=True)
 se.save_solution(name="result.pvd")
 printpar(f"u, p solution norms = {norm(u):8.3e}, {norm(p):8.3e}")
 

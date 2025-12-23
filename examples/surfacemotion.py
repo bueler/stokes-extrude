@@ -155,8 +155,8 @@ if dim == 2:
 else:
     ns = as_vector([-sbm.dx(0), -sbm.dx(1), Constant(1.0)])
 DG0bm = FunctionSpace(se.basehier[-1], "DG", 0)
-Phibm = Function(DG0bm).project(-dot(ubm, ns))
-Phibm.rename("surface motion map Phi (m s-1)")
+Phibm = Function(DG0bm).project(dot(ubm, ns))
+Phibm.rename("surface motion map Phi = u|_s . n_s (m s-1)")
 
 # .pvd result only in 3D
 if dim == 3:

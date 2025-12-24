@@ -24,17 +24,17 @@ levs = 3
 #   5    |                 | 594.1   29GB
 # [meshes: 2->8x8x4, 3->16x16x8, 4->32x32x16, 5->64x64x32]
 
-mx = bmx * 2**(levs - 1)
-mz = bmz * 2**(levs - 1)
+mx = bmx * 2 ** (levs - 1)
+mz = bmz * 2 ** (levs - 1)
 if solvetype == "gmg":
     assert levs > 1
     coarsebasemesh = UnitSquareMesh(bmx, bmx)
-    #coarsebasemesh = UnitSquareMesh(bmx, bmx, diagonal="crossed")
-    #coarsebasemesh = UnitSquareMesh(bmx, bmx, quadrilateral=True)
+    # coarsebasemesh = UnitSquareMesh(bmx, bmx, diagonal="crossed")
+    # coarsebasemesh = UnitSquareMesh(bmx, bmx, quadrilateral=True)
     se = StokesExtrude(coarsebasemesh, mz=bmz, levs=levs)
 else:
     basemesh = UnitSquareMesh(mx, mx)
-    #basemesh = UnitSquareMesh(mx, mx, diagonal="crossed")
+    # basemesh = UnitSquareMesh(mx, mx, diagonal="crossed")
     se = StokesExtrude(basemesh, mz=mz)
 se.reset_elevations(0.0, 1.0)
 
@@ -45,9 +45,7 @@ v, q = TestFunctions(se.Z)
 # linear Stokes with viscosity nu = 1.0
 se.viscosity_constant(1.0)  # _mass solvers use this value
 f_body = Constant((1.0, 1.0, -1.0))
-F = (
-    inner(2.0 * se.D(u), se.D(v)) - p * div(v) - q * div(u) - inner(f_body, v)
-) * dx
+F = (inner(2.0 * se.D(u), se.D(v)) - p * div(v) - q * div(u) - inner(f_body, v)) * dx
 
 # drive lid in 45 degree direction with maximum speed of 1.0,
 #   with lid speed zero on boundaries to reduce pressure singularity
@@ -64,15 +62,15 @@ params["snes_monitor"] = None
 params["snes_converged_reason"] = None
 
 if solvetype == "gmg":
-    #params.update(SolverParams["schur_gmg_mass"])
+    # params.update(SolverParams["schur_gmg_mass"])
     params.update(SolverParams["schur_gmg_selfp"])
 else:
     params.update(SolverParams[solvetype])
-    #params.update(SolverParams["mumps"])
-    #params.update(SolverParams["schur_nonscalable"])
-    #params.update(SolverParams["schur_nonscalable_selfp"])
-    #params.update(SolverParams["schur_nonscalable_mass"])
-    #params.update(SolverParams["schur_hypre_mass"])
+    # params.update(SolverParams["mumps"])
+    # params.update(SolverParams["schur_nonscalable"])
+    # params.update(SolverParams["schur_nonscalable_selfp"])
+    # params.update(SolverParams["schur_nonscalable_mass"])
+    # params.update(SolverParams["schur_hypre_mass"])
 
 n_u, n_p = se.V.dim(), se.W.dim()
 printpar(f"solving for {mx} x {mx} x {mz} mesh with sizes n_u = {n_u}, n_p = {n_p} ...")

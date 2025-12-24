@@ -17,6 +17,7 @@ from stokesextrude import *
 #   python3 surfacemotion.py DIM LEVS METHOD
 # default: python3 surfacemotion.py 2 3 mumps
 import sys
+
 if len(sys.argv) > 1:
     dim = int(sys.argv[1])
 else:
@@ -38,21 +39,27 @@ if dim == 2:
 else:
     cmx = 4
     cmz = 1
-mx = cmx * 2**(levs - 1)
-mz = cmz * 2**(levs - 1)
+mx = cmx * 2 ** (levs - 1)
+mz = cmz * 2 ** (levs - 1)
 
 # map-plane region dimensio
 L = 100.0e3  # 2D: domain is [-L,L];  3D: domain is [-L,L] x [-L,L]
 
 # extruded mesh via refinement of coarse base mesh
 if dim == 2:
-    printpar(f"generating 2D {mx}x{mz} extruded mesh from {cmx}x{cmz} coarse and {levs} levels ...")
+    printpar(
+        f"generating 2D {mx}x{mz} extruded mesh from {cmx}x{cmz} coarse and {levs} levels ..."
+    )
 else:
-    printpar(f"generating 3D {mx}x{mx}x{mz} extruded mesh from {cmx}x{cmx}x{cmz} coarse and {levs} levels ...")
+    printpar(
+        f"generating 3D {mx}x{mx}x{mz} extruded mesh from {cmx}x{cmx}x{cmz} coarse and {levs} levels ..."
+    )
 if dim == 2:
     coarsebasemesh = IntervalMesh(cmx, -L, L)
 else:
-    coarsebasemesh = RectangleMesh(cmx, cmx, L, L, originX=-L, originY=-L, diagonal="crossed")
+    coarsebasemesh = RectangleMesh(
+        cmx, cmx, L, L, originX=-L, originY=-L, diagonal="crossed"
+    )
 coarsebasemesh.topology_dm.viewFromOptions("-dm_view")
 se = StokesExtrude(coarsebasemesh, mz=cmz, levs=levs)
 
@@ -82,14 +89,14 @@ for j in range(se.levs):
     x = SpatialCoordinate(se.basehier[j])
     hmin = 10.0 if method == "gmg" else 0.0  # FIXME
     if dim == 2:
-        s[j].interpolate(conditional(abs(x[0]) < R0,
-                                     H0 * (1.0 - abs(x[0] / R0) ** pp) ** rr,
-                                     hmin))
+        s[j].interpolate(
+            conditional(abs(x[0]) < R0, H0 * (1.0 - abs(x[0] / R0) ** pp) ** rr, hmin)
+        )
     else:
         r = sqrt(x[0] * x[0] + x[1] * x[1])
-        s[j].interpolate(conditional(r < R0,
-                                     H0 * (1.0 - abs(r / R0) ** pp) ** rr,
-                                     hmin))
+        s[j].interpolate(
+            conditional(r < R0, H0 * (1.0 - abs(r / R0) ** pp) ** rr, hmin)
+        )
 se.reset_elevations(0.0, s)
 
 # function spaces
@@ -176,6 +183,7 @@ if dim == 2 and coarsebasemesh.comm.size == 1:
     xx = se.basehier[-1].coordinates.dat.data_ro
     xm = (xx[1:] + xx[:-1]) / 2.0
     import matplotlib.pyplot as plt
+
     fig, (ax1, ax2) = plt.subplots(2, 1)
     ax1.plot(xx / 1.0e3, sbm.dat.data, color="C1", label="s")
     ax1.legend(loc="upper left")

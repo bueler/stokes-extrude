@@ -5,7 +5,6 @@ import firedrake as fd
 
 
 class pc_Mass(fd.AuxiliaryOperatorPC):
-
     def form(self, pc, test, trial):
         actx = self.get_appctx(pc)  # appctx is kwarg to StokesExtrude.solve()
         nu = actx.get("stokesextrude_nu")  # breaks if this key not in dict.
@@ -17,7 +16,7 @@ class pc_Mass(fd.AuxiliaryOperatorPC):
 SolverParams = {
     "newton": {  # Newton solve
         "snes_linesearch_type": "basic",
-        #"snes_linesearch_type": "bt",
+        # "snes_linesearch_type": "bt",
         "snes_max_it": 200,
         "snes_rtol": 1.0e-8,
         "snes_atol": 1.0e-12,
@@ -27,7 +26,7 @@ SolverParams = {
         "ksp_type": "preonly",
         "pc_type": "lu",
         "pc_factor_shift_type": "inblocks",
-        #"pc_factor_shift_type": "nonzero",
+        # "pc_factor_shift_type": "nonzero",
         "pc_factor_mat_solver_type": "mumps",
     },
     "schur_nonscalable":  # Newton steps by GMRES + Schur with full+lu formation
@@ -57,7 +56,7 @@ SolverParams = {
         "fieldsplit_0_ksp_type": "preonly",
         "fieldsplit_0_pc_type": "lu",
         "fieldsplit_0_pc_factor_mat_solver_type": "mumps",
-        #"fieldsplit_0_pc_type": "hypre",   # slower than MUMPS, or fails entirely
+        # "fieldsplit_0_pc_type": "hypre",   # slower than MUMPS, or fails entirely
         "fieldsplit_1_ksp_type": "preonly",
         "fieldsplit_1_pc_type": "jacobi",
     },

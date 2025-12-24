@@ -26,7 +26,6 @@ class _PinchColumn(fd.DirichletBC):
 
 
 class _PinchColumnPressure(_PinchColumn):
-
     def __init__(self, V, g, sub_domain, htol=1.0):
         super().__init__(V, fd.Constant(0.0), None, htol=htol)
 
@@ -49,7 +48,6 @@ class _PinchColumnPressure(_PinchColumn):
 
 
 class _PinchColumnVelocity(_PinchColumn):
-
     def __init__(self, V, g, sub_domain, dim=2, htol=1.0):
         assert dim in [2, 3]
         self.dim = dim
@@ -79,9 +77,7 @@ class _PinchColumnVelocity(_PinchColumn):
             hh = fd.Function(V).interpolate(fd.as_vector([h, h]))
             return np.where(hh.dat.data_ro_with_halos < self.htol)[0]
         else:
-            hhh = fd.Function(V).interpolate(
-                fd.as_vector([h, h, h])
-            )
+            hhh = fd.Function(V).interpolate(fd.as_vector([h, h, h]))
             return np.where(hhh.dat.data_ro_with_halos < self.htol)[0]
 
 
@@ -121,7 +117,9 @@ class StokesExtrude:
         # copy "original" coordinates onto each level
         self.xorig = [m.coordinates.copy(deepcopy=True) for m in self.hier]
         # generate "R" function spaces on each level
-        self.P1R = [fd.FunctionSpace(m, "P", 1, vfamily="R", vdegree=0) for m in self.hier]
+        self.P1R = [
+            fd.FunctionSpace(m, "P", 1, vfamily="R", vdegree=0) for m in self.hier
+        ]
         # populate self.bR, self.tR with elevations compatible with "original coordinates"
         #   on each level, and attach application contexts to mesh level coordinate DMs
         self.reset_elevations(0.0, 1.0)
@@ -243,8 +241,12 @@ class StokesExtrude:
             for ff in self.F_neumann:  # ff = (val, ind)
                 F -= fd.inner(ff[0], v) * fd.ds_v(ff[1])
         if pinch:
-            pinchU = _PinchColumnVelocity(self.Z.sub(0), None, None, dim=self.dim, htol=self.pinchhtol)
-            pinchP = _PinchColumnPressure(self.Z.sub(1), None, None, htol=self.pinchhtol)
+            pinchU = _PinchColumnVelocity(
+                self.Z.sub(0), None, None, dim=self.dim, htol=self.pinchhtol
+            )
+            pinchP = _PinchColumnPressure(
+                self.Z.sub(1), None, None, htol=self.pinchhtol
+            )
             bclist = self.dirbcs + [pinchU, pinchP]
         else:
             bclist = self.dirbcs

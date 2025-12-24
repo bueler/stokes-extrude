@@ -16,7 +16,7 @@ def test_pc_mass_name():
     assert revealfullname(pc_Mass()) == "stokesextrude.solverparams.pc_Mass"
 
 
-def test_setup_2d_th():
+def test_setup_2d_taylorhood():
     m, k = 2, 2
     basemesh = UnitIntervalMesh(m)  # 1d base mesh
     se = StokesExtrude(basemesh, mz=m)  # quad elements
@@ -25,7 +25,7 @@ def test_setup_2d_th():
     assert udim == se.dim * ((k + 1) * m + 1) ** se.dim
 
 
-def test_setup_3d_th():
+def test_setup_3d_taylorhood():
     m, k = 2, 1
     basemesh = UnitSquareMesh(m, m)  # 2d base mesh
     se = StokesExtrude(basemesh, mz=m)  # prism elements
@@ -47,7 +47,7 @@ def _linear_stokes_F(se, f_body=None):
     return F
 
 
-def test_solve_3d_hydrostatic_mumps():
+def test_stokes_3d_hydrostatic_mumps():
     m = 3
     basemesh = UnitSquareMesh(m, m)
     se = StokesExtrude(basemesh, mz=m)  # prism elements
@@ -91,7 +91,7 @@ def _exact_2d_slab(mesh, V, W, L, H):
     return uexact, pexact
 
 
-def test_solve_2d_slab_mumps():
+def test_stokes_2d_slab_mumps():
     mx, mz = 6, 4
     L, H = 10.0, 1.0
     basemesh = IntervalMesh(mx, L)
@@ -110,7 +110,7 @@ def test_solve_2d_slab_mumps():
     assert errornorm(pexact, p) < 1.0e-10
 
 
-def test_solve_2d_slab_schur_nonscalable():
+def test_stokes_2d_slab_schur_nonscalable():
     mx, mz = 6, 4
     L, H = 10.0, 1.0
     basemesh = IntervalMesh(mx, L)
@@ -130,7 +130,7 @@ def test_solve_2d_slab_schur_nonscalable():
     assert errornorm(pexact, p) < 1.0e-8
 
 
-def test_solve_2d_slab_schur_nonscalable_mass():
+def test_stokes_2d_slab_schur_nonscalable_mass():
     mx, mz = 20, 2
     L, H = 10.0, 1.0
     basemesh = IntervalMesh(mx, L)
@@ -150,7 +150,7 @@ def test_solve_2d_slab_schur_nonscalable_mass():
     assert errornorm(pexact, p) < 1.0e-8
 
 
-def test_solve_2d_slab_schur_hypre_mass():
+def test_stokes_2d_slab_schur_hypre_mass():
     mx, mz = 20, 2
     L, H = 10.0, 1.0
     basemesh = IntervalMesh(mx, L)
@@ -170,7 +170,7 @@ def test_solve_2d_slab_schur_hypre_mass():
     assert errornorm(pexact, p) < 1.0e-8
 
 
-def test_solve_2d_slab_schur_gmg_selfp():
+def test_stokes_2d_slab_schur_gmg_selfp():
     cmx, cmz = 20, 2  # for coarse base mesh
     levs = 2
     L, H = 10.0, 1.0
@@ -195,7 +195,7 @@ def test_solve_2d_slab_schur_gmg_selfp():
     assert errornorm(pexact, p) < 1.0e-8
 
 
-def test_pinch_mumps():
+def test_stokes_pinch_mumps():
     mx, mz = 4, 4
     # 1d base mesh on (0,3)
     basemesh = IntervalMesh(3 * mx, 3.0)
@@ -229,7 +229,7 @@ def test_pinch_mumps():
     assert se.solver.snes.getIterationNumber() == 1
 
 
-def test_pinch_gmg():
+def test_stokes_pinch_gmg():
     cmx, cmz = 2, 2
     levs = 2
     # coarse 1d base mesh on (0,3)
@@ -275,13 +275,13 @@ def test_pinch_gmg():
 if __name__ == "__main__":
     pass
     # test_pc_mass_name()
-    # test_setup_2d_th()
-    # test_setup_3d_th()
-    # test_solve_2d_hydrostatic_mumps()
-    # test_solve_2d_slab_mumps()
-    # test_solve_2d_slab_schur_nonscalable()
-    # test_solve_2d_slab_schur_nonscalable_mass()
-    # test_solve_2d_slab_schur_hypre_mass()
-    # test_solve_2d_slab_schur_gmg_selfp()
-    # test_pinch_mumps()
-    # test_pinch_gmg()
+    # test_setup_2d_taylorhood()
+    # test_setup_3d_taylorhood()
+    # test_stokes_2d_hydrostatic_mumps()
+    # test_stokes_2d_slab_mumps()
+    # test_stokes_2d_slab_schur_nonscalable()
+    # test_stokes_2d_slab_schur_nonscalable_mass()
+    # test_stokes_2d_slab_schur_hypre_mass()
+    # test_stokes_2d_slab_schur_gmg_selfp()
+    # test_stokes_pinch_mumps()
+    # test_stokes_pinch_gmg()

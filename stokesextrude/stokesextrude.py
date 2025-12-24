@@ -11,12 +11,11 @@ from firedrake.dmhooks import pop_appctx, get_appctx, push_appctx
 printpar = PETSc.Sys.Print
 
 
-class _PinchColumn(fd.DirichletBC):
-    """A 'pinch column' is one with zero mesh height (layer thickness)."""
-
-    def __init__(self, V, g, sub_domain, htol=1.0):
-        self.htol = htol
-        super().__init__(V, g, sub_domain)
+class PinColumnBase(fd.DirichletBC):
+    """A 'pinned column' for a function space oven an extruded mesh is one
+    with all degrees of freedom in the column trivialized.  These dofs are set
+    to known values, similar to applying Dirichlet boundary conditions.
+    This is a virtual base class."""
 
     @fd.utils.cached_property
     def function_arg(self, g):
@@ -25,9 +24,15 @@ class _PinchColumn(fd.DirichletBC):
         self._function_arg = g
 
 
-class _PinchColumnPressure(_PinchColumn):
+class PinchColumnPressure(PinColumnBase):
+    """A 'pinched column' is one where the degrees of freedom are trivialized
+    (pinned) according to the column height being below a tolerance.
+    The column height is determined from bottom and top elevations stored in
+    the extruded mesh hierarchy.  These are stored in an application context."""
+
     def __init__(self, V, g, sub_domain, htol=1.0):
-        super().__init__(V, fd.Constant(0.0), None, htol=htol)
+        self.htol = htol
+        super().__init__(V, fd.Constant(0.0), None)
 
     @fd.utils.cached_property
     def nodes(self):
@@ -41,20 +46,23 @@ class _PinchColumnPressure(_PinchColumn):
         for j in range(actx["levs"]):
             if mesh == actx["hier"][j]:
                 break
-        # DEBUG: print(f"  [_PinchColumnPressure appctx is {actx} at level j={j}]")
+        # DEBUG: print(f"  [PinchColumnPressure appctx is {actx} at level j={j}]")
         # return P1 nodes in columns with surface elevation less than 1.0 meter
         h = fd.Function(V).interpolate(actx["tR"][j] - actx["bR"][j])
         return np.where(h.dat.data_ro_with_halos < self.htol)[0]
 
 
-class _PinchColumnVelocity(_PinchColumn):
+class PinchColumnVelocity(PinColumnBase):
+    """This 'pinched column' is for vector-valued velocity.  Compare PinchColumnPressure."""
+
     def __init__(self, V, g, sub_domain, dim=2, htol=1.0):
+        self.htol = htol
         assert dim in [2, 3]
         self.dim = dim
         zerovec = (
             fd.as_vector([0.0, 0.0]) if dim == 2 else fd.as_vector([0.0, 0.0, 0.0])
         )
-        super().__init__(V, zerovec, None, htol=htol)
+        super().__init__(V, zerovec, None)
 
     @fd.utils.cached_property
     def nodes(self):
@@ -68,7 +76,7 @@ class _PinchColumnVelocity(_PinchColumn):
         for j in range(actx["levs"]):
             if mesh == actx["hier"][j]:
                 break
-        # DEBUG: print(f"  [_PinchColumnVelocity appctx is {actx} at level j={j}]")
+        # DEBUG: print(f"  [PinchColumnVelocity appctx is {actx} at level j={j}]")
         # return vector P2 nodes in columns with height (thickness) less than htol
         # warning: assumes velocity space is P2
         P2scalar = fd.FunctionSpace(V.mesh(), "CG", 2)
@@ -241,10 +249,10 @@ class StokesExtrude:
             for ff in self.F_neumann:  # ff = (val, ind)
                 F -= fd.inner(ff[0], v) * fd.ds_v(ff[1])
         if pinch:
-            pinchU = _PinchColumnVelocity(
+            pinchU = PinchColumnVelocity(
                 self.Z.sub(0), None, None, dim=self.dim, htol=self.pinchhtol
             )
-            pinchP = _PinchColumnPressure(
+            pinchP = PinchColumnPressure(
                 self.Z.sub(1), None, None, htol=self.pinchhtol
             )
             bclist = self.dirbcs + [pinchU, pinchP]

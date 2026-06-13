@@ -17,7 +17,7 @@ class PinColumnBase(fd.DirichletBC):
     to known values, similar to applying Dirichlet boundary conditions.
     This is a virtual base class."""
 
-    @fd.utils.cached_property
+    #@fd.utils.cached_property
     def function_arg(self, g):
         # override this from the base class so as to avoid check which breaks
         #   when using Schur solvers
@@ -34,7 +34,7 @@ class PinchColumnPressure(PinColumnBase):
         self.htol = htol
         super().__init__(V, fd.Constant(0.0), None)
 
-    @fd.utils.cached_property
+    #@fd.utils.cached_property
     def nodes(self):
         # where are we applying pinch?
         V = self.function_space()
@@ -64,7 +64,7 @@ class PinchColumnVelocity(PinColumnBase):
         )
         super().__init__(V, zerovec, None)
 
-    @fd.utils.cached_property
+    #@fd.utils.cached_property
     def nodes(self):
         # where are we applying pinch?
         V = self.function_space()

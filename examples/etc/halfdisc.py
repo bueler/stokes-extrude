@@ -13,6 +13,7 @@ elements, so this fails for P>3 processes.
 
 Thanks to Colin Cotter and Lawrence Mitchell for help with this.'''
 
+from functools import cached_property
 from firedrake import *
 from firedrake import utils
 from firedrake.petsc import PETSc
@@ -50,7 +51,7 @@ F = (dot(grad(u), grad(v)) - C * v) * dx
 
 # get extruded mesh node indices where x is not in (1,2)
 class PinchedNodes(DirichletBC):
-    @utils.cached_property
+    @cached_property
     def nodes(self):
         xy = self.function_space().mesh().coordinates.dat.data_ro
         return np.where(np.abs(xy[:,0] - 1.5) >= 0.5)[0]

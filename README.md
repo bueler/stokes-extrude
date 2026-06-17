@@ -63,7 +63,7 @@ Here are some capabilities of the `StokesExtrude` class:
   1. Tools are provided to go back and forth between fields defined over the base mesh versus trace values at the top and bottom of the extruded mesh.  These can be in the `R` space of the extruded mesh.
   1. Zero-height columns are allowed.  The classes `PinchColumnPressure` and `PinchColumnVelocity` are defined for this purpose.  They adds conditions similar to Dirichlet conditions for all degrees of freedom, e.g. velocities and pressures, which are in zero-height columns.
   1. At initialization, the class can create a mesh hierarchy (from a base mesh hierarchy) for geometric multigrid.
-  1. One can set a variety of Dirichlet and Neumann boundary conditions.  The user is responsible for choosing a well-posed problem; e.g. at least some Dirichlet conditions should be set.
+  1. One can set a variety of Dirichlet and Neumann boundary conditions.  The user is responsible for choosing a well-posed problem; e.g. typically some Dirichlet conditions should be set.
   1. One can set classical Taylor-Hood (P2 x P1), higher-order Taylor-Hood, or P2 x DG0.
   1. Tests and examples are provide with linear and power-law viscosity; the latter is for glaciers.
 
